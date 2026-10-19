@@ -17,7 +17,7 @@
     },
     "packages/typed-routes": {
       "name": "@skyjt/typed-routes",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "devDependencies": {
         "@types/node": "^22.20.3",
         "filesystem-routing": "0.2.1",
@@ -39,7 +39,7 @@
     },
     "packages/typed-routes-solid": {
       "name": "@skyjt/typed-routes-solid",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@skyjt/typed-routes": "workspace:*",
       },

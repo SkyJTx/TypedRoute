@@ -141,7 +141,7 @@ describe("Request Middleware (createMiddleware)", () => {
     const request = new Request("http://localhost:3000/about");
     const response = await middleware(request, nextMock);
 
-    expect(nextMock).toHaveBeenCalledWith(request);
+    expect(nextMock).toHaveBeenCalledWith();
     expect(await response.text()).toBe("Rendered Page HTML");
   });
 
@@ -260,7 +260,7 @@ describe("Request Middleware (createMiddleware)", () => {
       method: "GET",
     });
     const getResponse = await middleware(getRequest, nextMock);
-    expect(nextMock).toHaveBeenCalledWith(getRequest);
+    expect(nextMock).toHaveBeenCalledWith();
     expect(await getResponse.text()).toBe("Fallback to Next");
   });
 
@@ -300,5 +300,89 @@ describe("Request Middleware (createMiddleware)", () => {
     expect(json.error).toBe("Validation Failed");
     expect(json.target).toBe("params");
     expect(nextMock).not.toHaveBeenCalled();
+  });
+
+  it("supports Solid 2.0 RequestEvent objects ({ request: Request }) and dispatches successfully", async () => {
+    const userRoute = defineRoute({
+      params: v.object({
+        id: v.number(),
+      }),
+    });
+
+    const routes = [
+      {
+        path: "/api/users/:id",
+        $GET: {
+          require: () => ({
+            GET: (event: APIEvent) => {
+              return Response.json({
+                id: event.params?.id,
+                hasLocals: Boolean((event as Record<string, unknown>).locals),
+              });
+            },
+          }),
+        },
+        $$route: {
+          require: () => ({
+            route: userRoute,
+          }),
+        },
+      },
+    ] as const;
+
+    const middleware = createMiddleware(routes as never);
+    const nextMock = vi.fn();
+
+    const request = new Request("http://localhost:3000/api/users/99");
+    const solidEvent = {
+      request,
+      locals: { user: "wriothesley" },
+      response: { headers: new Headers() },
+    };
+
+    const response = await middleware(solidEvent, nextMock);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.id).toBe(99);
+    expect(json.hasLocals).toBe(true);
+    expect(nextMock).not.toHaveBeenCalled();
+  });
+
+  it("calls next() with zero arguments on fallthrough for Solid Start compatibility", async () => {
+    const routes = [
+      {
+        path: "/api/items",
+        $GET: {
+          require: () => ({
+            GET: () => Response.json({ ok: true }),
+          }),
+        },
+      },
+    ] as const;
+
+    const middleware = createMiddleware(routes as never);
+
+    const strictSolidNext = vi.fn((...args: unknown[]) => {
+      if (args.length > 0 && args[0] !== undefined) {
+        throw new TypeError(
+          "[@solidjs/vite-plugin] start.middleware: next() takes no arguments. " +
+          "Middleware receives the request event -- so to substitute the request, assign " +
+          "event.request = newRequest before calling next()."
+        );
+      }
+      return Promise.resolve(new Response("Fallback Passed"));
+    });
+
+    const request = new Request("http://localhost:3000/non-api-page");
+    const solidEvent = {
+      request,
+      locals: {},
+    };
+
+    const response = await middleware(solidEvent, strictSolidNext);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("Fallback Passed");
+    expect(strictSolidNext).toHaveBeenCalledTimes(1);
+    expect(strictSolidNext).toHaveBeenCalledWith();
   });
 });

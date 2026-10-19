@@ -45,4 +45,6 @@ export {
   type HttpMethod,
   type HttpMethodKey,
   type MiddlewareOptions,
+  type MiddlewareInput,
+  type MiddlewareNext,
 } from "./middleware/middleware";

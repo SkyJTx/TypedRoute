@@ -1,34 +1,33 @@
 {
-    "name":  "typed-routes-monorepo",
-    "private":  true,
-    "type":  "module",
-    "packageManager":  "bun@1.4.3",
-    "workspaces":  [
-                       "packages/*"
-                   ],
-    "scripts":  {
-                    "build":  "turbo run build",
-                    "test":  "turbo run test",
-                    "typecheck":  "turbo run typecheck",
-                    "lint":  "turbo run lint",
-                    "clean":  "turbo run clean",
-                    "changeset":  "changeset",
-                    "version-packages":  "changeset version",
-                    "publish-packages":  "changeset publish",
-                    "publish:core":  "bun publish --cwd packages/typed-routes --access public",
-                    "publish:solid":  "bun publish --cwd packages/typed-routes-solid --access public",
-                    "publish:all":  "bun run publish:core && bun run publish:solid"
-                },
-    "devDependencies":  {
-                            "@changesets/cli":  "^3.0.3",
-                            "@types/bun":  "latest",
-                            "@types/node":  "^22.20.3",
-                            "oxlint":  "~1.79.0",
-                            "tsup":  "^8.5.0",
-                            "turbo":  "^2.10.12",
-                            "typescript":  "^5.9.3",
-                            "vitest":  "^5.0.1"
-                        },
-    "license":  "AGPL-3.0-or-later"
+    "name": "typed-routes-monorepo",
+    "private": true,
+    "type": "module",
+    "packageManager": "bun@1.4.3",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "turbo run build",
+        "test": "turbo run test",
+        "typecheck": "turbo run typecheck",
+        "lint": "turbo run lint",
+        "clean": "turbo run clean",
+        "changeset": "changeset",
+        "version-packages": "changeset version && bun install",
+        "publish-packages": "changeset publish",
+        "publish:core": "bun publish --cwd packages/typed-routes --access public",
+        "publish:solid": "bun publish --cwd packages/typed-routes-solid --access public",
+        "publish:all": "bun run publish:core && bun run publish:solid"
+    },
+    "devDependencies": {
+        "@changesets/cli": "^3.0.3",
+        "@types/bun": "latest",
+        "@types/node": "^22.20.3",
+        "oxlint": "~1.79.0",
+        "tsup": "^8.5.0",
+        "turbo": "^2.10.12",
+        "typescript": "^5.9.3",
+        "vitest": "^5.0.1"
+    },
+    "license": "AGPL-3.0-or-later"
 }
-

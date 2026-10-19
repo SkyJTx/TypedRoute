@@ -32,6 +32,25 @@ const httpHandlerKeys = [
 
 export type HttpMethodKey = (typeof httpHandlerKeys)[number];
 
+export type MiddlewareInput = Request | { request: Request; [key: string]: unknown };
+
+export type MiddlewareNext = (request?: Request) => Response | Promise<Response>;
+
+function extractRequest(input: MiddlewareInput): Request {
+  if (input instanceof Request) {
+    return input;
+  }
+  if (
+    typeof input === "object" &&
+    input !== null &&
+    "request" in input &&
+    input.request instanceof Request
+  ) {
+    return input.request;
+  }
+  return input as unknown as Request;
+}
+
 const placeholderHandler = { require: () => ({}) };
 
 /**
@@ -102,7 +121,7 @@ function toResponse(result: unknown): Response {
 export function createMiddleware(
   routes: readonly FileRouteHandlers[],
   options: MiddlewareOptions = {},
-): (request: Request, next: (request?: Request) => Response | Promise<Response>) => Promise<Response> {
+): (eventOrRequest: MiddlewareInput, next: MiddlewareNext) => Promise<Response> {
   const normalizedRoutes = normalizeRoutesForMatcher(routes);
   const match = createAPIMatcher(normalizedRoutes);
   const getEvent = options.getEvent ?? getScopedEvent;
@@ -128,15 +147,16 @@ export function createMiddleware(
   }
 
   return async (
-    request: Request,
-    next: (request?: Request) => Response | Promise<Response>,
+    eventOrRequest: MiddlewareInput,
+    next: MiddlewareNext,
   ): Promise<Response> => {
+    const request = extractRequest(eventOrRequest);
     const url = new URL(request.url);
     const pathname = stripPathBase(url.pathname, options.base ?? "/");
     const matched = match(pathname, request.method);
 
     if (!matched) {
-      return next(request);
+      return next();
     }
 
     const config = handlerToConfig.get(matched.handler);
@@ -204,10 +224,19 @@ export function createMiddleware(
     }
 
     let event: APIEvent;
-    try {
-      event = getEvent();
-    } catch {
-      event = { request } as APIEvent;
+    if (
+      typeof eventOrRequest === "object" &&
+      eventOrRequest !== null &&
+      "request" in eventOrRequest &&
+      (eventOrRequest as unknown) !== request
+    ) {
+      event = eventOrRequest as unknown as APIEvent;
+    } else {
+      try {
+        event = getEvent();
+      } catch {
+        event = { request } as APIEvent;
+      }
     }
 
     event.request = request;
@@ -228,6 +257,6 @@ export function createMiddleware(
       return new Response(null, { status: 404 });
     }
 
-    return next(request);
+    return next();
   };
 }

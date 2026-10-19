@@ -27,6 +27,8 @@ export type {
   HttpMethod,
   HttpMethodKey,
   MiddlewareOptions,
+  MiddlewareInput,
+  MiddlewareNext,
 } from "@skyjt/typed-routes";
 
 export {
