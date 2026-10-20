@@ -1,3 +1,9 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 import { createContext, createComponent, createMemo, useContext, type ParentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useParams, useLocation, useSearchParams, type Location } from "@solidjs/router";
