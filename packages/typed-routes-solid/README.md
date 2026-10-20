@@ -2,7 +2,7 @@
 
 > SolidJS and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive parameter validation, preloading, API request middleware, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
 ---
 
@@ -304,4 +304,4 @@ export const OPTIONS = handleRequest;
 
 ## License
 
-GNU Affero General Public License v3 (`AGPL-3.0-or-later`). See [LICENSE](LICENSE) for details.
+Mozilla Public License 2.0 (`MPL-2.0`). See [LICENSE](LICENSE) for details.

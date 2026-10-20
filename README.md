@@ -2,7 +2,7 @@
 
 > End-to-end compile-time typed routes, Universal Schema parameter validation, URL path building, and API middleware powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
 ---
 
@@ -85,4 +85,4 @@ bun run lint
 
 ## License
 
-GNU Affero General Public License v3 (`AGPL-3.0-or-later`). See [LICENSE](LICENSE) for details.
+Mozilla Public License 2.0 (`MPL-2.0`). See [LICENSE](LICENSE) for details.
