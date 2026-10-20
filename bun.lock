@@ -32,7 +32,7 @@
     },
     "packages/typed-routes": {
       "name": "@skyjt/typed-routes",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "devDependencies": {
         "@types/node": "^22.20.3",
         "filesystem-routing": "0.2.1",
@@ -54,7 +54,7 @@
     },
     "packages/typed-routes-solid": {
       "name": "@skyjt/typed-routes-solid",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": {
         "@skyjt/typed-routes": "workspace:*",
       },
@@ -432,7 +432,7 @@
 
     "@skyjt/typed-routes-solid": ["@skyjt/typed-routes-solid@workspace:packages/typed-routes-solid"],
 
-    "@skyjt/typed-routes-v0.1.1": ["@skyjt/typed-routes@workspace:packages/typed-routes"],
+    "@skyjt/typed-routes-v0.1.1": ["@skyjt/typed-routes@0.1.1", "", { "peerDependencies": { "filesystem-routing": "^0.2.1", "vite": ">=5.0.0" }, "optionalPeers": ["vite"] }, "sha512-1jFx+nsmybDB3XiE3Puk4gMmrVdda5Bhe9J2A3c/Q2BNkXyHhTdm9GeQeuMwLwQoXyyA4u7ttsk2EjkaAsmVeQ=="],
 
     "@solidjs/babel-plugin": ["@solidjs/babel-plugin@2.0.0-rc.15", "", { "dependencies": { "@babel/helper-module-imports": "7.18.6", "@babel/plugin-syntax-jsx": "^7.18.6", "@babel/types": "^7.20.7", "html-entities": "2.3.3", "parse5": "^7.1.2" }, "peerDependencies": { "@babel/core": "^7.20.12", "@tsrx/core": "0.1.63" }, "optionalPeers": ["@tsrx/core"] }, "sha512-jsz08IPwxue2qQ6Nol2hnRN2M2z/Fymp7ka8L7XoV129L5N8l31s9tEWF/JXw+hbdGrrXTI3KM4kYvZdtma13A=="],
 
