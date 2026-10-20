@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
   entry: {
@@ -16,14 +16,20 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: [
-    "@skyjt/typed-routes",
-    "@skyjt/typed-routes/vite",
-    "solid-js",
-    "@solidjs/router",
-    "@solidjs/web",
-    "filesystem-routing",
-    "filesystem-routing/vite",
-    "vite",
-  ],
+  deps: {
+    neverBundle: [
+      "@skyjt/typed-routes",
+      "@skyjt/typed-routes/vite",
+      "solid-js",
+      "@solidjs/router",
+      "@solidjs/web",
+      "filesystem-routing",
+      "filesystem-routing/vite",
+      "vite",
+    ],
+  },
+  outExtensions: () => ({
+    js: ".js",
+    dts: ".d.ts",
+  }),
 });
