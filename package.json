@@ -4,7 +4,8 @@
     "type": "module",
     "packageManager": "bun@1.4.3",
     "workspaces": [
-        "packages/*"
+        "packages/*",
+        "benchmarks/*"
     ],
     "scripts": {
         "build": "turbo run build",
@@ -17,7 +18,8 @@
         "publish-packages": "changeset publish",
         "publish:core": "bun publish --cwd packages/typed-routes --access public",
         "publish:solid": "bun publish --cwd packages/typed-routes-solid --access public",
-        "publish:all": "bun run publish:core && bun run publish:solid"
+        "publish:all": "bun run publish:core && bun run publish:solid",
+        "bench": "turbo run bench"
     },
     "devDependencies": {
         "@changesets/cli": "^3.0.3",

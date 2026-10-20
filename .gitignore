@@ -21,3 +21,7 @@ coverage/
 # Tasks backup directory
 .tasks/
 .tasks/**
+
+# Local caches
+.cache/
+**/.cache/

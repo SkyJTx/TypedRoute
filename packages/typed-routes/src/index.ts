@@ -38,10 +38,11 @@ export { coercePrimitive, coerceRecord, normalizeSearchParams } from "./schema/c
 export { validateData, isStandardSchema, isZodSchema } from "./schema/validator-adapter";
 
 export { defineRoute } from "./router/define-route";
-export { buildUrl } from "./router/path-builder";
+export { buildUrl, compilePathBuilder, serializeFastQuery } from "./router/path-builder";
 
 export {
   createMiddleware,
+  parseFastUrl,
   type HttpMethod,
   type HttpMethodKey,
   type MiddlewareOptions,

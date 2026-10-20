@@ -1,0 +1,23 @@
+{
+  "name": "@benchmarks/version-comparison",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "bun run src/index.ts",
+    "bench:perf": "bun run src/performance.bench.ts",
+    "bench:memory": "bun run src/memory.bench.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@skyjt/typed-routes": "workspace:*",
+    "@skyjt/typed-routes-v0.1.1": "npm:@skyjt/typed-routes@0.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.20.3",
+    "filesystem-routing": "^0.4.0",
+    "mitata": "^1.0.34",
+    "typescript": "^5.9.3"
+  }
+}

@@ -6,13 +6,22 @@ function isBooleanString(value: string): boolean {
 }
 
 /**
- * Detects whether a string represents a valid numeric value.
+ * Detects whether a string represents a valid numeric value without allocating whitespace trimmed strings.
  */
 function isNumericString(value: string): boolean {
-  if (value.trim() === "") {
+  const len = value.length;
+  if (len === 0) {
     return false;
   }
-  return !Number.isNaN(Number(value));
+  let i = 0;
+  while (i < len && (value.charCodeAt(i) === 32 || value.charCodeAt(i) === 9)) {
+    i++;
+  }
+  if (i === len) {
+    return false;
+  }
+  const num = Number(value);
+  return !Number.isNaN(num);
 }
 
 /**
@@ -35,44 +44,99 @@ export function coercePrimitive(value: unknown): unknown {
 }
 
 /**
- * Recursively coerces string values in a shallow record to primitives.
+ * Coerces string values in a shallow record to primitives without intermediate Object.entries allocations.
  */
 export function coerceRecord(record: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(record)) {
-    result[key] = coercePrimitive(value);
+  for (const key in record) {
+    result[key] = coercePrimitive(record[key]);
   }
   return result;
 }
 
 /**
+ * Fast search query string parser that avoids native URLSearchParams host allocations.
+ */
+export function parseFastQueryString(searchStr: string): Record<string, unknown> {
+  if (!searchStr) {
+    return {};
+  }
+  const clean = searchStr.charCodeAt(0) === 63 ? searchStr.slice(1) : searchStr;
+  if (!clean) {
+    return {};
+  }
+  const result: Record<string, unknown> = {};
+  const len = clean.length;
+  let start = 0;
+
+  while (start < len) {
+    let eqIdx = clean.indexOf("=", start);
+    let ampIdx = clean.indexOf("&", start);
+
+    if (ampIdx === -1) {
+      ampIdx = len;
+    }
+
+    if (eqIdx === -1 || eqIdx > ampIdx) {
+      const rawKey = clean.slice(start, ampIdx);
+      if (rawKey) {
+        const key = rawKey.indexOf("%") === -1 ? rawKey : decodeURIComponent(rawKey);
+        appendParam(result, key, "");
+      }
+    } else {
+      const rawKey = clean.slice(start, eqIdx);
+      const rawVal = clean.slice(eqIdx + 1, ampIdx);
+      if (rawKey) {
+        const key = rawKey.indexOf("%") === -1 ? rawKey : decodeURIComponent(rawKey);
+        const val =
+          rawVal.indexOf("%") === -1 && rawVal.indexOf("+") === -1
+            ? rawVal
+            : decodeURIComponent(rawVal.replace(/\+/g, " "));
+        appendParam(result, key, val);
+      }
+    }
+
+    start = ampIdx + 1;
+  }
+
+  return result;
+}
+
+function appendParam(result: Record<string, unknown>, key: string, value: string): void {
+  if (key in result) {
+    const existing = result[key];
+    if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      result[key] = [existing, value];
+    }
+  } else {
+    result[key] = value;
+  }
+}
+
+/**
  * Parses raw search query strings or URLSearchParams into a structured object,
- * properly aggregating duplicate keys into arrays.
+ * properly aggregating duplicate keys into arrays with zero unnecessary host allocations.
  */
 export function normalizeSearchParams(
   input: string | URLSearchParams | Record<string, string | string[] | undefined>,
 ): Record<string, unknown> {
-  if (typeof input === "string" || input instanceof URLSearchParams) {
-    const params = typeof input === "string" ? new URLSearchParams(input.replace(/^\?/, "")) : input;
-    const result: Record<string, unknown> = {};
+  if (typeof input === "string") {
+    return parseFastQueryString(input);
+  }
 
-    for (const [key, value] of params.entries()) {
-      if (key in result) {
-        const existing = result[key];
-        if (Array.isArray(existing)) {
-          existing.push(value);
-        } else {
-          result[key] = [existing, value];
-        }
-      } else {
-        result[key] = value;
-      }
+  if (input instanceof URLSearchParams) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of input.entries()) {
+      appendParam(result, key, value);
     }
     return result;
   }
 
   const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(input)) {
+  for (const key in input) {
+    const value = input[key];
     if (value !== undefined) {
       result[key] = value;
     }

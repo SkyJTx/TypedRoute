@@ -7,7 +7,7 @@ import {
 import type { RouteConfig } from "../types/route-definition";
 import { RouteValidationError } from "../types/route-definition";
 import { validateData } from "../schema/validator-adapter";
-import { normalizeSearchParams } from "../schema/coercion";
+import { parseFastQueryString } from "../schema/coercion";
 
 export type HttpMethod =
   | "HEAD"
@@ -116,6 +116,38 @@ function toResponse(result: unknown): Response {
 }
 
 /**
+ * Fast ASCII URL scanner that extracts pathname and query string without C++ host allocations.
+ */
+export function parseFastUrl(urlStr: string, base: string = "/"): { pathname: string; searchStr: string } {
+  const protoEnd = urlStr.indexOf("://");
+  const hostStart = protoEnd === -1 ? 0 : protoEnd + 3;
+  const pathStart = urlStr.indexOf("/", hostStart);
+
+  if (pathStart === -1) {
+    const qIdx = urlStr.indexOf("?", hostStart);
+    if (qIdx === -1) {
+      return { pathname: stripPathBase("/", base), searchStr: "" };
+    }
+    const hIdx = urlStr.indexOf("#", qIdx + 1);
+    const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
+    return { pathname: stripPathBase("/", base), searchStr };
+  }
+
+  const qIdx = urlStr.indexOf("?", pathStart);
+  if (qIdx === -1) {
+    const hIdx = urlStr.indexOf("#", pathStart);
+    const rawPath = hIdx === -1 ? urlStr.slice(pathStart) : urlStr.slice(pathStart, hIdx);
+    return { pathname: stripPathBase(rawPath, base), searchStr: "" };
+  }
+
+  const rawPath = urlStr.slice(pathStart, qIdx);
+  const hIdx = urlStr.indexOf("#", qIdx + 1);
+  const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
+
+  return { pathname: stripPathBase(rawPath, base), searchStr };
+}
+
+/**
  * Creates fetch middleware that validates request parameters and search queries against route schemas.
  */
 export function createMiddleware(
@@ -151,8 +183,7 @@ export function createMiddleware(
     next: MiddlewareNext,
   ): Promise<Response> => {
     const request = extractRequest(eventOrRequest);
-    const url = new URL(request.url);
-    const pathname = stripPathBase(url.pathname, options.base ?? "/");
+    const { pathname, searchStr } = parseFastUrl(request.url, options.base ?? "/");
     const matched = match(pathname, request.method);
 
     if (!matched) {
@@ -161,7 +192,7 @@ export function createMiddleware(
 
     const config = handlerToConfig.get(matched.handler);
     const rawParams: Record<string, string | undefined> = matched.params ?? {};
-    const rawSearch: Record<string, unknown> = normalizeSearchParams(url.searchParams);
+    const rawSearch: Record<string, unknown> = searchStr ? parseFastQueryString(searchStr) : {};
 
     let validatedParams: unknown = rawParams;
     let validatedSearch: unknown = rawSearch;
