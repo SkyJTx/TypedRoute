@@ -1,6 +1,6 @@
 {
   "name": "@skyjt/typed-routes",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Framework-agnostic compile-time typed routes, schema validation, URL builder, and API middleware for filesystem-routing",
   "type": "module",
   "files": [

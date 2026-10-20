@@ -1,5 +1,11 @@
 # @skyjt/typed-routes
 
+## 0.2.1
+
+### Patch Changes
+
+- Relicense package under Mozilla Public License 2.0 (MPL-2.0).
+
 ## 0.2.0
 
 ### Minor Changes
