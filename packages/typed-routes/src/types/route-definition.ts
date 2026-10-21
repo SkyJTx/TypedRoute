@@ -46,6 +46,78 @@ export interface FileRouteEntry {
 }
 
 /**
+ * Module namespace shape returned by a route's `$$route.require()` reference.
+ */
+export interface MiddlewareRouteConfigModule {
+  readonly route?: unknown;
+}
+
+/**
+ * Eager reference to a route module's `export const route = defineRoute(...)` definition.
+ */
+export interface MiddlewareRouteConfigRef {
+  readonly src?: string;
+  require(): MiddlewareRouteConfigModule;
+}
+
+/**
+ * Structural HTTP handler module reference compatible with `virtual:file-routes`.
+ * Uses `object` as the module return constraint because TypeScript module namespaces
+ * (`typeof import("./route")`) do not have an implicit index signature when they export
+ * both `route = defineRoute(...)` and HTTP method functions (`GET`, `POST`, etc.).
+ */
+export type MiddlewareHandlerRef =
+  | {
+      readonly src?: string;
+      import(): Promise<object>;
+    }
+  | {
+      readonly src?: string;
+      require(): object;
+    };
+
+/**
+ * Structural route manifest entry accepted by `createMiddleware` without casts.
+ */
+export interface MiddlewareRouteEntry {
+  readonly path: string;
+  readonly page?: boolean;
+  readonly $component?: unknown;
+  readonly $$route?: MiddlewareRouteConfigRef;
+  readonly $HEAD?: MiddlewareHandlerRef;
+  readonly $GET?: MiddlewareHandlerRef;
+  readonly $POST?: MiddlewareHandlerRef;
+  readonly $PUT?: MiddlewareHandlerRef;
+  readonly $PATCH?: MiddlewareHandlerRef;
+  readonly $DELETE?: MiddlewareHandlerRef;
+  readonly $QUERY?: MiddlewareHandlerRef;
+  readonly $OPTIONS?: MiddlewareHandlerRef;
+}
+
+/**
+ * Strongly-typed API request event carrying validated and coerced params and search objects.
+ */
+export interface TypedAPIEvent<
+  TParams = Record<string, string | undefined>,
+  TSearch = Record<string, unknown>,
+> {
+  request: Request;
+  params: TParams;
+  search: TSearch;
+  validationError?: RouteValidationError;
+  [key: string]: unknown;
+}
+
+/**
+ * Strongly-typed API handler function bound to route params and search schemas.
+ */
+export type TypedAPIHandler<
+  TParams = Record<string, string | undefined>,
+  TSearch = Record<string, unknown>,
+  TResult = unknown,
+> = (event: TypedAPIEvent<TParams, TSearch>) => TResult | Promise<TResult>;
+
+/**
  * Route configuration defining schemas, preloading, and error handling.
  */
 export interface RouteConfig<
@@ -81,6 +153,9 @@ export interface DefinedRouteConfig<
   TLocation = RouteLocation<TState>,
 > {
   readonly config: RouteConfig<TParams, TSearch, TState, THash, TData, TLocation>;
+  handler<TResult = unknown>(
+    fn: TypedAPIHandler<TParams, TSearch, TResult>,
+  ): TypedAPIHandler<TParams, TSearch, TResult>;
 }
 
 /**
@@ -89,14 +164,22 @@ export interface DefinedRouteConfig<
 export class RouteValidationError extends Error {
   public readonly target: "params" | "search" | "state" | "hash";
   public readonly issues: ReadonlyArray<{ message: string; path?: string }>;
+  public readonly rawParams: Record<string, string | undefined>;
+  public readonly rawSearch: Record<string, unknown>;
 
   public constructor(
     target: "params" | "search" | "state" | "hash",
     issues: ReadonlyArray<{ message: string; path?: string }>,
+    context?: {
+      rawParams?: Record<string, string | undefined>;
+      rawSearch?: Record<string, unknown>;
+    },
   ) {
     super(`Route validation failed for ${target}: ${issues.map((i) => i.message).join("; ")}`);
     this.name = "RouteValidationError";
     this.target = target;
     this.issues = issues;
+    this.rawParams = context?.rawParams ?? {};
+    this.rawSearch = context?.rawSearch ?? {};
   }
 }

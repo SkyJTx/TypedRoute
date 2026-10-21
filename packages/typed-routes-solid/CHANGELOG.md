@@ -1,5 +1,22 @@
 # @skyjt/typed-routes-solid
 
+## 0.3.0
+
+### Minor Changes
+
+- **Built-in Route Validation Error Boundary & Non-Nullable Accessors**:
+  - Added `errorComponent` and `passThroughError` options to `defineRoute()`, plus `defaultErrorComponent` to `interceptFileRoutes(entries, options)`.
+  - Updated `RouteValidationProvider` to short-circuit mounting `props.children` when parameter or search validation fails and render `errorComponent` / `defaultErrorComponent` with `{ error, rawParams, rawSearch }`.
+  - Tightened `route.useParams()` (`Accessor<TParams>`) and `route.useSearch()` (`Accessor<TSearch>`) to non-nullable accessors so route components can read `params().id` and `search().q` directly without optional chaining or `<Show>` guards.
+  - Added `route.useError()` and `route.handler()` to `DefinedRouteObject`.
+  - Re-exported `RouteSectionProps`, `Location`, `RouteDefinition`, `TypedAPIEvent`, and `TypedAPIHandler` from `@skyjt/typed-routes-solid`.
+  - Added lazy `$$route` config resolution in `interceptFileRoutes` for circular SSR module graphs.
+
+### Patch Changes
+
+- Updated dependencies
+  - @skyjt/typed-routes@0.4.0
+
 ## 0.2.0
 
 ### Minor Changes

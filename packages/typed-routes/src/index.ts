@@ -15,18 +15,23 @@ export type {
   ValidationIssue,
   ValidationResult,
 } from "./types/type-validator";
-
 export { SchemaValidationError } from "./types/type-validator";
 
-export {
-  RouteValidationError,
-  type RouteLocation,
-  type RouteConfig,
-  type DefinedRouteConfig,
-  type FileRouteEntry,
-  type FileRouteLazyRef,
-  type FileRouteEagerRef,
+export type {
+  RouteLocation,
+  RouteConfig,
+  DefinedRouteConfig,
+  FileRouteEntry,
+  FileRouteLazyRef,
+  FileRouteEagerRef,
+  MiddlewareRouteConfigModule,
+  MiddlewareRouteConfigRef,
+  MiddlewareHandlerRef,
+  MiddlewareRouteEntry,
+  TypedAPIEvent,
+  TypedAPIHandler,
 } from "./types/route-definition";
+export { RouteValidationError } from "./types/route-definition";
 
 export type {
   NormalizePath,
@@ -40,11 +45,26 @@ export type {
   FindRouteEntry,
 } from "./types/route-inference";
 
-export { coercePrimitive, coerceRecord, normalizeSearchParams } from "./schema/coercion";
-export { validateData, isStandardSchema, isZodSchema } from "./schema/validator-adapter";
+export {
+  coercePrimitive,
+  coerceRecord,
+  normalizeSearchParams,
+  parseFastQueryString,
+} from "./schema/coercion";
+
+export {
+  validateData,
+  isStandardSchema,
+  isZodSchema,
+} from "./schema/validator-adapter";
 
 export { defineRoute } from "./router/define-route";
-export { buildUrl, compilePathBuilder, serializeFastQuery } from "./router/path-builder";
+export {
+  buildUrl,
+  compilePathBuilder,
+  serializeFastQuery,
+  type CompiledPathBuilder,
+} from "./router/path-builder";
 
 export {
   createMiddleware,

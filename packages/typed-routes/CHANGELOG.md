@@ -1,5 +1,21 @@
 # @skyjt/typed-routes
 
+## 0.4.0
+
+### Minor Changes
+
+- **Zero-Cast Middleware & Route Handlers**:
+  - Updated `createMiddleware` to natively accept `"virtual:file-routes"` arrays (`readonly MiddlewareRouteEntry[]`) without `as unknown as readonly FileRouteHandlers[]` casts.
+  - Added `route.handler(fn)` on `defineRoute` and exported `TypedAPIEvent<TParams, TSearch>` / `TypedAPIHandler<TParams, TSearch>` for end-to-end typed API handlers with zero `filesystem-routing/api` imports or type assertions.
+- **UI Page Validation & `onValidationError` Support**:
+  - Normalized UI page routes (`page: true`) carrying `$$route` schemas in `createMiddleware` with isolated per-route handler references to prevent `WeakMap` collisions.
+  - Added `isPage: boolean` to `MiddlewareOptions.onValidationError`. When `isPage: true` and `onValidationError` returns `void`, `createMiddleware` attaches `event.validationError` and calls `next()` with zero arguments so SSR can render the route's `errorComponent`.
+  - Extended `RouteValidationError` with `rawParams` and `rawSearch` context.
+- **Strict Path & Search Type Inference**:
+  - Fixed `ExtractPathParams`, `RouteParamsFor`, and `RouteSearchFor` so routes without explicit `params` or `search` schemas infer path parameters from the URL template and allow optional search queries without `as never` casts.
+- **Circular SSR Import Resolution in Vite Plugin**:
+  - Split `virtual:file-routes` into a zero-dependency leaf manifest module (`virtual:file-routes-manifest:*`) and route-data binder so `routes` and `pageRoutes` are always initialized before route modules that import `<Link>` or router helpers evaluate in SSR.
+
 ## 0.3.0
 
 ### Minor Changes

@@ -7,56 +7,51 @@
 import type { InferOutput } from "./type-validator";
 
 /**
- * Normalizes trailing slashes for route paths.
+ * Normalizes leading and trailing slashes for route path matching.
  */
-export type NormalizePath<P extends string> = P extends `${infer Head}/`
-  ? Head extends ""
-    ? "/"
-    : Head
-  : P;
+export type NormalizePath<T extends string> = T extends `/${infer Rest}`
+  ? Rest extends `${infer Middle}/`
+    ? Middle
+    : Rest
+  : T extends `${infer Middle}/`
+    ? Middle
+    : T;
 
 /**
- * Splits a path string into individual segment elements.
+ * Splits path into distinct segment tuples.
  */
-export type PathSegments<P extends string> =
-  NormalizePath<P> extends `/${infer Rest}`
-    ? SegmentSplit<Rest>
-    : SegmentSplit<P>;
+export type PathSegments<T extends string> = T extends ""
+  ? []
+  : NormalizePath<T> extends `${infer Head}/${infer Tail}`
+    ? [Head, ...PathSegments<Tail>]
+    : [NormalizePath<T>];
 
-type SegmentSplit<P extends string> = P extends `${infer A}/${infer B}`
-  ? [A, ...SegmentSplit<B>]
-  : P extends ""
-    ? []
-    : [P];
+type ExtractSegmentsParams<T extends readonly string[]> = T extends readonly [
+  infer Head extends string,
+  ...infer Tail extends string[],
+]
+  ? (Head extends `:${infer Param}`
+      ? { [K in Param]: string | number }
+      : Head extends `*${infer Wildcard}`
+        ? { [K in Wildcard]: string | number }
+        : {}) &
+      ExtractSegmentsParams<Tail>
+  : {};
 
 /**
- * Type-level parser extracting path parameters from route patterns.
- * Supports `:param`, `:param?`, `*param`, `[param]`, and `[...param]`.
+ * Extracts param names from path segments as a structural object.
  */
-export type ExtractPathParams<P extends string> = SegmentsToParams<PathSegments<P>>;
-
-type SegmentsToParams<Segments extends readonly string[]> =
-  Segments extends readonly [infer Head extends string, ...infer Tail extends readonly string[]]
-    ? (Head extends `:${infer Param}?`
-        ? { [K in Param]?: string }
-        : Head extends `:${infer Param}`
-          ? { [K in Param]: string }
-          : Head extends `*${infer Param}`
-            ? { [K in Param]: string }
-            : Head extends `[...${infer Param}]`
-              ? { [K in Param]: string }
-              : Head extends `[${infer Param}]`
-                ? { [K in Param]: string }
-                : {}) & SegmentsToParams<Tail>
-    : {};
+export type ExtractPathParams<T extends string> = Simplify<
+  ExtractSegmentsParams<PathSegments<T>>
+>;
 
 /**
- * Flattens intersection types into readable object shapes.
+ * Flattens intersection types for clean IntelliSense and type display.
  */
 export type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
 /**
- * Recursively extracts all string literal route paths from a manifest tuple.
+ * Recursively extracts all valid target paths from a manifest.
  */
 export type ExtractRoutePaths<TManifest extends readonly unknown[]> =
   TManifest extends readonly [infer Head, ...infer Tail]
@@ -84,15 +79,19 @@ export type FindRouteEntry<TManifest extends readonly unknown[], TargetPath exte
  */
 export type RouteParamsFor<TManifest extends readonly unknown[], Path extends string> =
   FindRouteEntry<TManifest, Path> extends infer Entry
-    ? Entry extends { $$route?: { require(): { route: infer R } } }
+    ? Entry extends { $$route: { require(): { route: infer R } } }
       ? R extends { useParams(): () => infer P }
-        ? [P] extends [never]
+        ? [unknown] extends [P]
           ? Simplify<ExtractPathParams<Path>>
-          : P
+          : [NonNullable<P>] extends [never]
+            ? Simplify<ExtractPathParams<Path>>
+            : NonNullable<P>
         : R extends { config: { params?: infer V } }
           ? [V] extends [undefined]
             ? Simplify<ExtractPathParams<Path>>
-            : InferOutput<V>
+            : [unknown] extends [InferOutput<V>]
+              ? Simplify<ExtractPathParams<Path>>
+              : InferOutput<V>
           : Simplify<ExtractPathParams<Path>>
       : Simplify<ExtractPathParams<Path>>
     : Simplify<ExtractPathParams<Path>>;
@@ -102,27 +101,31 @@ export type RouteParamsFor<TManifest extends readonly unknown[], Path extends st
  */
 export type RouteSearchFor<TManifest extends readonly unknown[], Path extends string> =
   FindRouteEntry<TManifest, Path> extends infer Entry
-    ? Entry extends { $$route?: { require(): { route: infer R } } }
+    ? Entry extends { $$route: { require(): { route: infer R } } }
       ? R extends { useSearch(): () => infer S }
-        ? [S] extends [never]
-          ? Record<string, string | string[] | undefined>
-          : S
+        ? [unknown] extends [S]
+          ? Record<string, string | number | boolean | string[] | undefined>
+          : [NonNullable<S>] extends [never]
+            ? Record<string, string | number | boolean | string[] | undefined>
+            : Partial<NonNullable<S>>
         : R extends { config: { search?: infer V } }
           ? [V] extends [undefined]
-            ? Record<string, string | string[] | undefined>
-            : InferOutput<V>
-          : Record<string, string | string[] | undefined>
-      : Record<string, string | string[] | undefined>
-    : Record<string, string | string[] | undefined>;
+            ? Record<string, string | number | boolean | string[] | undefined>
+            : [unknown] extends [InferOutput<V>]
+              ? Record<string, string | number | boolean | string[] | undefined>
+              : Partial<NonNullable<InferOutput<V>>>
+          : Record<string, string | number | boolean | string[] | undefined>
+      : Record<string, string | number | boolean | string[] | undefined>
+    : Record<string, string | number | boolean | string[] | undefined>;
 
 /**
  * Navigation options contract bound to route parameters and search schema.
  */
 export type NavigationArgs<TParams, TSearch, TState> =
-  ([keyof TParams] extends [never]
+  ([keyof NonNullable<TParams>] extends [never]
     ? { params?: never }
-    : { params: TParams }) &
-  ([keyof TSearch] extends [never]
+    : { params: NonNullable<TParams> }) &
+  ([keyof NonNullable<TSearch>] extends [never]
     ? { search?: TSearch }
     : { search?: TSearch }) & {
     state?: TState;

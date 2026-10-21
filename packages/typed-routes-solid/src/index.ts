@@ -21,6 +21,12 @@ export type {
   FileRouteEntry,
   FileRouteLazyRef,
   FileRouteEagerRef,
+  MiddlewareRouteConfigModule,
+  MiddlewareRouteConfigRef,
+  MiddlewareHandlerRef,
+  MiddlewareRouteEntry,
+  TypedAPIEvent,
+  TypedAPIHandler,
   NormalizePath,
   PathSegments,
   ExtractPathParams,
@@ -50,15 +56,24 @@ export {
   createMiddleware,
 } from "@skyjt/typed-routes";
 
+// Re-exported SolidJS router types so userland never needs direct @solidjs/router imports
+export type {
+  RouteSectionProps,
+  Location,
+  RouteDefinition,
+} from "@solidjs/router";
+
 // SolidJS-specific reactive components, context, and router bindings
 export type {
+  RouteValidationErrorProps,
+  SolidRouteConfig,
   RouteValidationContextValue,
   DefinedRouteObject,
   LinkProps,
 } from "./types/solid-route";
 
 export { RouteValidationProvider, useRouteValidationContext } from "./context/route-context";
-export { interceptFileRoutes } from "./interceptor/interceptor";
+export { interceptFileRoutes, type InterceptRoutesOptions } from "./interceptor/interceptor";
 export { defineRoute } from "./router/define-route";
 export { createRouter, type RouterConfig, type RouterPaths } from "./router/create-router";
 export { Link } from "./components/link";

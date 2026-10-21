@@ -5,7 +5,8 @@
   "packageManager": "bun@1.4.3",
   "workspaces": [
     "packages/*",
-    "benchmarks/*"
+    "benchmarks/*",
+    "examples/*"
   ],
   "scripts": {
     "build": "turbo run build",

@@ -7,40 +7,96 @@
 import { describe, it, expect } from "vitest";
 import { createRoot, createSignal, createMemo, type Accessor } from "solid-js";
 import * as v from "valibot";
-import { validateData } from "@skyjt/typed-routes";
+import { validateData, RouteValidationError } from "@skyjt/typed-routes";
 import { defineRoute } from "~/router/define-route";
 
-describe("Fine-Grained Reactive Unwrapping", () => {
-  it("updates params accessor reactively without remounting or state teardown", async () => {
-    let setRawParams!: (val: Record<string, string>) => void;
-    let paramsAccessor!: Accessor<{ id: number }>;
-    let renderCount = 0;
-    const componentState = { initializedAt: Date.now() };
+describe("Fine-Grained Reactive Unwrapping & Route Definition", () => {
+  describe("Success Cases", () => {
+    it("updates params accessor reactively without remounting or state teardown", async () => {
+      let setRawParams!: (val: Record<string, string>) => void;
+      let paramsAccessor!: Accessor<{ id: number }>;
+      let renderCount = 0;
+      const componentState = { initializedAt: Date.now() };
 
-    createRoot(() => {
-      const userRoute = defineRoute({
-        params: v.object({
-          id: v.number(),
-        }),
+      createRoot(() => {
+        const userRoute = defineRoute({
+          params: v.object({
+            id: v.number(),
+          }),
+        });
+
+        const [rawParams, setParams] = createSignal<Record<string, string>>({ id: "42" });
+        setRawParams = setParams;
+        renderCount++;
+
+        paramsAccessor = createMemo(() => {
+          return validateData(userRoute.config.params, rawParams()).data as { id: number };
+        });
       });
 
-      const [rawParams, setParams] = createSignal<Record<string, string>>({ id: "42" });
-      setRawParams = setParams;
-      renderCount++;
+      expect(paramsAccessor().id).toBe(42);
+      expect(renderCount).toBe(1);
 
-      paramsAccessor = createMemo(() => {
-        return validateData(userRoute.config.params, rawParams()).data as { id: number };
-      });
+      setRawParams({ id: "43" });
+      await Promise.resolve();
+
+      expect(paramsAccessor().id).toBe(43);
+      expect(renderCount).toBe(1);
+      expect(componentState.initializedAt).toBeDefined();
     });
 
-    expect(paramsAccessor().id).toBe(42);
-    expect(renderCount).toBe(1);
+    it("binds typed API handler via route.handler() with inferred params and search", async () => {
+      const apiRoute = defineRoute({
+        params: v.object({ id: v.number() }),
+        search: v.object({ verbose: v.optional(v.boolean(), false) }),
+      });
 
-    setRawParams({ id: "43" });
-    await Promise.resolve();
+      const handler = apiRoute.handler((event) => {
+        return {
+          id: event.params.id,
+          verbose: event.search.verbose,
+        };
+      });
 
-    expect(paramsAccessor().id).toBe(43);
-    expect(renderCount).toBe(1);
-    expect(componentState.initializedAt).toBeDefined();
+      const result = await handler({
+        request: new Request("http://localhost/api/users/10?verbose=true"),
+        params: { id: 10 },
+        search: { verbose: true },
+      });
+
+      expect(result).toEqual({ id: 10, verbose: true });
+    });
+  });
+
+  describe("Expected Failure & Error Boundary Cases", () => {
+    it("attaches errorComponent and exposes useError() on defineRoute", () => {
+      const errorComp = ({ error, rawParams }: { error: RouteValidationError; rawParams: Record<string, string | undefined> }) =>
+        `Invalid: ${rawParams.id} (${error.target})`;
+
+      const userRoute = defineRoute({
+        params: v.object({ id: v.number() }),
+        errorComponent: errorComp,
+      });
+
+      expect(userRoute.config.errorComponent).toBe(errorComp);
+      expect(typeof userRoute.useError).toBe("function");
+    });
+
+    it("constructs RouteValidationError with rawParams and rawSearch context", () => {
+      const err = new RouteValidationError(
+        "params",
+        [{ message: "Expected number, received nan", path: "id" }],
+        {
+          rawParams: { id: "d" },
+          rawSearch: { tab: "info" },
+        },
+      );
+
+      expect(err.name).toBe("RouteValidationError");
+      expect(err.target).toBe("params");
+      expect(err.rawParams).toEqual({ id: "d" });
+      expect(err.rawSearch).toEqual({ tab: "info" });
+      expect(err.message).toContain("Expected number, received nan");
+    });
   });
 });

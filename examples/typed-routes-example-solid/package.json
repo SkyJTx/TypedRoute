@@ -1,0 +1,37 @@
+{
+  "name": "typed-routes-example-solid",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "lint": "oxlint src",
+    "server": "bun run server/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@solidjs/diagnostics": "^2.0.0-rc.16",
+    "@solidjs/start-devtools": "^1.0.0-next.5",
+    "@solidjs/vite-plugin": "^3.0.0-next.50",
+    "eslint-plugin-solid": "^0.18.1",
+    "oxlint": "^1.89.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@skyjt/typed-routes": "workspace:*",
+    "@skyjt/typed-routes-solid": "workspace:*",
+    "@solidjs/router": "^2.0.0-next.41",
+    "@solidjs/web": "^2.0.0-rc.16",
+    "filesystem-routing": "^0.4.0",
+    "hono": "^4.13.13",
+    "solid-js": "^2.0.0-rc.16",
+    "valibot": "^1.5.0"
+  },
+  "private": true
+}

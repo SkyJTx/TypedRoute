@@ -25,3 +25,4 @@ coverage/
 # Local caches
 .cache/
 **/.cache/
+test-app/

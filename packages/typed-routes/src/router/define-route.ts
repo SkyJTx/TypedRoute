@@ -10,6 +10,7 @@ import type {
   RouteConfig,
   RouteLocation,
   RouteValidationError,
+  TypedAPIHandler,
 } from "../types/route-definition";
 
 /**
@@ -54,5 +55,10 @@ export function defineRoute<
 
   return {
     config: routeConfig,
+    handler<TResult = unknown>(
+      fn: TypedAPIHandler<TParams, TSearch, TResult>,
+    ): TypedAPIHandler<TParams, TSearch, TResult> {
+      return fn;
+    },
   };
 }

@@ -11,18 +11,23 @@ import {
   RouteValidationError,
   validateData,
   normalizeSearchParams,
-  type RouteConfig,
   type FileRouteEntry,
   type FileRouteLazyRef,
   type FileRouteEagerRef,
 } from "@skyjt/typed-routes";
+import type { RouteValidationErrorProps, SolidRouteConfig } from "../types/solid-route";
 import { RouteValidationProvider } from "../context/route-context";
+
+export interface InterceptRoutesOptions {
+  defaultErrorComponent?: Component<RouteValidationErrorProps>;
+}
 
 /**
  * Intercepts manifest route definitions to bind schema validation and preloading for @solidjs/router.
  */
 export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
   entries: TManifest,
+  options?: InterceptRoutesOptions,
 ): RouteDefinition[] {
   const componentCache = new Map<string, Component<RouteSectionProps>>();
 
@@ -47,21 +52,40 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
   };
 
   const transformEntry = (entry: FileRouteEntry): RouteDefinition => {
-    const routeExport = entry.$$route?.require()?.route as
-      | { config?: RouteConfig<unknown, unknown, unknown, unknown, unknown, Location> }
-      | RouteConfig<unknown, unknown, unknown, unknown, unknown, Location>
-      | undefined;
-    const config: RouteConfig<unknown, unknown, unknown, unknown, unknown, Location> =
-      (routeExport && "config" in routeExport && routeExport.config
-        ? routeExport.config
-        : (routeExport as RouteConfig<unknown, unknown, unknown, unknown, unknown, Location>)) ?? {};
+    let cachedConfig: SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> | undefined;
+    const getConfig = (): SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> => {
+      if (cachedConfig) {
+        return cachedConfig;
+      }
+      try {
+        const routeExport = entry.$$route?.require()?.route as
+          | { config?: SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> }
+          | SolidRouteConfig<unknown, unknown, unknown, unknown, unknown>
+          | undefined;
+        if (routeExport && typeof routeExport === "object") {
+          cachedConfig =
+            "config" in routeExport && routeExport.config
+              ? routeExport.config
+              : (routeExport as SolidRouteConfig<unknown, unknown, unknown, unknown, unknown>);
+          return cachedConfig;
+        }
+      } catch {
+        // Module may still be evaluating during circular SSR import; resolve lazily on render/preload
+      }
+      return {};
+    };
+
+    const eagerConfig = getConfig();
 
     let component: Component<RouteSectionProps> | undefined = undefined;
     if (entry.$component) {
       const RawComp = resolveComponent(entry.$component);
       component = (props: RouteSectionProps): JSX.Element => {
         return createComponent(RouteValidationProvider, {
-          config,
+          get config() {
+            return getConfig();
+          },
+          defaultErrorComponent: options?.defaultErrorComponent,
           get children() {
             return createComponent(RawComp, props);
           },
@@ -73,33 +97,42 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
       }
     }
 
-    let preload = config.preload;
-    if (preload && typeof preload === "function") {
-      const origPreload = preload;
+    let preload: ((args: Record<string, unknown>) => unknown) | undefined = undefined;
+    if (eagerConfig.preload || entry.$$route) {
       preload = (args: Record<string, unknown>): unknown => {
+        const currentConfig = getConfig();
+        if (!currentConfig.preload || typeof currentConfig.preload !== "function") {
+          return undefined;
+        }
         const rawParams = (args.params as Record<string, string | undefined>) ?? {};
         const locationObj = (args.location as { query?: Record<string, string | string[] | undefined> }) ?? {};
         const rawSearch = normalizeSearchParams(locationObj.query ?? {});
 
-        const paramsRes = validateData(config.params, rawParams);
-        if (!paramsRes.success && config.onError) {
-          config.onError({
-            error: new RouteValidationError("params", paramsRes.issues ?? []),
+        const paramsRes = validateData(currentConfig.params, rawParams);
+        if (!paramsRes.success && currentConfig.onError) {
+          currentConfig.onError({
+            error: new RouteValidationError("params", paramsRes.issues ?? [], {
+              rawParams,
+              rawSearch,
+            }),
             rawParams,
             rawSearch,
           });
         }
 
-        const searchRes = validateData(config.search, rawSearch);
-        if (!searchRes.success && config.onError) {
-          config.onError({
-            error: new RouteValidationError("search", searchRes.issues ?? []),
+        const searchRes = validateData(currentConfig.search, rawSearch);
+        if (!searchRes.success && currentConfig.onError) {
+          currentConfig.onError({
+            error: new RouteValidationError("search", searchRes.issues ?? [], {
+              rawParams,
+              rawSearch,
+            }),
             rawParams,
             rawSearch,
           });
         }
 
-        return origPreload({
+        return currentConfig.preload({
           params: paramsRes.data,
           search: searchRes.data,
           location: args.location as Location,
@@ -108,11 +141,11 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
     }
 
     return {
-      ...config,
+      ...eagerConfig,
       path: entry.path,
       component,
       preload: preload as RouteDefinition["preload"],
-      info: { ...config.info, filesystem: true },
+      info: { ...eagerConfig.info, filesystem: true },
       children: entry.children ? (entry.children as FileRouteEntry[]).map(transformEntry) : undefined,
     } as RouteDefinition;
   };

@@ -1,153 +1,83 @@
 # `@skyjt/typed-routes`
 
-> Framework-agnostic compile-time typed routes, Universal Schema validation (`StandardSchemaV1`, Zod, custom parsers), URL path building, and API request middleware for [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> Framework-agnostic compile-time typed routes, Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, custom parsers), URL path building, typed `route.handler()` API builders, and request middleware for [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
 ---
 
-## Features
+## Documentation & API Reference
 
-- **Compile-Time Route Manifest Inference**: Extracts literal route paths, path parameters (`:id`, `:id?`, `*slug`, `[id]`, `[...slug]`), and schema types directly from `filesystem-routing` manifest tuples without runtime overhead.
-- **Universal Schema Validation**: Works out of the box with any [Standard Schema V1](https://github.com/standard-schema/standard-schema) library (Valibot, Zod 3.24+, ArkType), legacy Zod (`safeParse`), or plain custom parser functions.
-- **Automatic Primitive Coercion**: Automatically coerces string URL inputs (`"42"` -> `42`, `"true"` -> `true`) when running schema validation.
-- **URL Path Builder**: `buildUrl` safely substitutes path parameters, normalizes duplicate search queries into arrays, and formats hashes.
-- **API Request Middleware**: `createMiddleware` matches HTTP methods (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `QUERY`), enforces schema validation on request `params` and query `search`, and returns 400 Bad Request on failure.
-- **Vite Plugin**: `@skyjt/typed-routes/vite` integrates `filesystem-routing/vite` with full HTTP method scanning and cross-platform POSIX path normalization.
+See the full [TypedRoute Documentation](../../docs/index.md):
+
+- [Defining Routes](../../docs/02-routing/01-defining-routes.md)
+- [Route Handlers and Middleware (`isPage` Lifecycle)](../../docs/02-routing/04-route-handlers-and-middleware.md)
+- [API Reference: `defineRoute`](../../docs/03-api-reference/03-functions/define-route.md)
+- [API Reference: `createMiddleware`](../../docs/03-api-reference/03-functions/create-middleware.md)
+- [API Reference: `buildUrl` & `validateData`](../../docs/03-api-reference/03-functions/use-navigate-and-paths.md)
+- [API Reference: `routes()` Vite Plugin](../../docs/03-api-reference/04-configuration/vite-plugin.md)
 
 ---
 
 ## Installation
 
 ```bash
-# Using Bun
 bun add @skyjt/typed-routes filesystem-routing
-
-# Using pnpm
-pnpm add @skyjt/typed-routes filesystem-routing
-
-# Using npm
-npm install @skyjt/typed-routes filesystem-routing
 ```
 
-If you are using SolidJS, install the framework adapter [`@skyjt/typed-routes-solid`](../typed-routes-solid) instead.
+If you are using SolidJS, install [`@skyjt/typed-routes-solid`](../typed-routes-solid) as well.
 
 ---
 
-## Usage Guide
+## Usage Overview
 
-### 1. Vite Plugin Setup (`vite.config.ts`)
-
-Configure `filesystem-routing` in your Vite configuration using `@skyjt/typed-routes/vite`:
+### 1. Typed API Route Handlers (`defineRoute` & `route.handler`)
 
 ```ts
-// vite.config.ts
-import { defineConfig } from "vite";
-import { routes } from "@skyjt/typed-routes/vite";
-
-export default defineConfig({
-  plugins: [
-    routes({
-      dir: "src/routes",
-      httpMethods: true, // Enables GET, POST, PUT, DELETE, PATCH, OPTIONS, QUERY, HEAD
-      codeSplitting: true,
-    }),
-  ],
-});
-```
-
----
-
-### 2. Universal Schema Validation & Coercion
-
-Validate parameters or search query objects with automatic string-to-primitive coercion:
-
-```ts
+// src/routes/api/users/[id].ts
 import * as v from "valibot";
-import { validateData } from "@skyjt/typed-routes";
+import { defineRoute } from "@skyjt/typed-routes";
 
-const userSchema = v.object({
-  id: v.number(),
-  active: v.boolean(),
-  tags: v.optional(v.array(v.string())),
+export const route = defineRoute({
+  params: v.object({ id: v.number() }),
+  search: v.object({ verbose: v.optional(v.boolean(), false) }),
 });
 
-// String inputs from URLs are automatically coerced to numbers/booleans
-const result = validateData(userSchema, {
-  id: "101",
-  active: "true",
-  tags: ["admin", "staff"],
+export const GET = route.handler((event) => {
+  // event.params.id is `number`; event.search.verbose is `boolean`
+  return Response.json({
+    id: event.params.id,
+    verbose: event.search.verbose,
+  });
 });
-
-if (result.success) {
-  console.log(result.data); // { id: 101, active: true, tags: ["admin", "staff"] }
-} else {
-  console.error(result.issues);
-}
 ```
 
----
-
-### 3. URL Path Building (`buildUrl`)
-
-Construct URLs with path parameters, search queries (including arrays), and hashes:
+### 2. Request Middleware (`createMiddleware`)
 
 ```ts
-import { buildUrl } from "@skyjt/typed-routes";
-
-const url = buildUrl("/users/:id/posts", {
-  params: { id: 42 },
-  search: {
-    sort: "desc",
-    filter: ["drafts", "archived"],
-  },
-  hash: "comments",
-});
-
-console.log(url);
-// Output: /users/42/posts?sort=desc&filter=drafts&filter=archived#comments
-```
-
----
-
-### 4. API Request Middleware (`createMiddleware`)
-
-Connect your file-based API route handlers to standard `Request`/`Response` servers (Node, Bun, Cloudflare Workers, Nitro, Elysia, Express):
-
-```ts
+// src/middleware.ts
 import routes from "virtual:file-routes";
 import { createMiddleware } from "@skyjt/typed-routes";
 
 export const apiMiddleware = createMiddleware(routes, {
-  base: "/api",
-  onValidationError({ error, rawParams, rawSearch, request }) {
-    // Custom error formatting
+  base: "/",
+  onValidationError({ error, rawParams, rawSearch, isPage }) {
+    // Allow UI page requests (isPage === true) to proceed to SSR errorComponent
+    if (isPage) {
+      return;
+    }
     return Response.json(
       {
-        status: "error",
+        error: "Route Validation Error",
         target: error.target,
         issues: error.issues,
+        received: { params: rawParams, search: rawSearch },
       },
-      { status: 422 },
+      { status: 400 },
     );
   },
 });
-
-// Example fetch handler
-export default {
-  async fetch(request: Request) {
-    return apiMiddleware(request, async (req) => {
-      return new Response("Not Found", { status: 404 });
-    });
-  },
-};
 ```
-
----
-
-## Framework Adapters
-
-- **SolidJS**: [`@skyjt/typed-routes-solid`](../typed-routes-solid)
 
 ---
 

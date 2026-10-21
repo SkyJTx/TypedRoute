@@ -20,7 +20,7 @@ describe("Router, Link, and useNavigate API", () => {
     },
   ] as const;
 
-  it("creates router instance exposing Link and useNavigate", () => {
+  it("creates router instance exposing Link, useNavigate, and zero-cast paths.build", () => {
     const router = createRouter<typeof mockManifest>({
       routes: [
         { path: "/", component: () => "Home" },
@@ -31,14 +31,14 @@ describe("Router, Link, and useNavigate API", () => {
     expect(router.Router).toBeDefined();
     expect(router.Link).toBeDefined();
     expect(router.useNavigate).toBeDefined();
-    expect(router.paths.build("/users/:id", { params: { id: "42" as never } })).toBe("/users/42");
+    expect(router.paths.build("/users/:id", { params: { id: 42 } })).toBe("/users/42");
   });
 
-  it("builds href with params and search options in Link", () => {
+  it("builds href with params and search options in Link without casts", () => {
     const element = Link<typeof mockManifest, "/users/:id">({
       to: "/users/:id",
-      params: { id: "100" as never },
-      search: { tab: "details" } as never,
+      params: { id: "100" },
+      search: { tab: "details" },
       class: "custom-class",
     });
 

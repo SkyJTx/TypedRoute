@@ -1,121 +1,38 @@
 # `@skyjt/typed-routes-solid`
 
-> SolidJS and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive parameter validation, preloading, API request middleware, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive parameter validation, route-level `errorComponent` boundaries, preloading, API request middleware, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
 ---
 
-## Features
+## Documentation & API Reference
 
-- **Unified Developer Experience**: Re-exports all core schema validation tools (`validateData`), path builders (`buildUrl`), and API middleware (`createMiddleware`) alongside Solid-specific primitives.
-- **Compile-Time Route Inference**: Automatically extracts literal route paths and parameter types from the route manifest.
-- **Universal Schema Validation**: Validates route `params`, query `search`, location `state`, and `hash` with [Standard Schema V1](https://github.com/standard-schema/standard-schema) (Valibot, ArkType), Zod, or custom parser functions.
-- **Fine-Grained Reactive Accessors**: Exposes reactive SolidJS `Accessor<T>` signals (`useParams()`, `useSearch()`) that update in-place without component remounts or state teardown.
-- **Type-Safe Navigation**: `<Link>` and `useNavigate()` prevent typos in route paths and enforce required path parameters and search queries at compile time.
-- **Full-Stack API Middleware**: `createMiddleware` validates API endpoints before delegating to backend request handlers.
-- **Vite Integration**: `@skyjt/typed-routes-solid/vite` integrates `filesystem-routing/vite` with Solid SSR deduplication and POSIX path normalization.
+See the full [TypedRoute Documentation](../../docs/index.md):
+
+- [Installation & Setup](../../docs/01-getting-started/01-installation.md)
+- [Defining Routes](../../docs/02-routing/01-defining-routes.md)
+- [Linking and Navigating](../../docs/02-routing/02-linking-and-navigating.md)
+- [Error Handling (`errorComponent` & `useError`)](../../docs/02-routing/03-error-handling.md)
+- [Route Handlers and Middleware (`route.handler` & `isPage`)](../../docs/02-routing/04-route-handlers-and-middleware.md)
+- [API Reference: `<Link>`](../../docs/03-api-reference/01-components/link.md)
+- [API Reference: `defineRoute`](../../docs/03-api-reference/03-functions/define-route.md)
+- [API Reference: `createMiddleware`](../../docs/03-api-reference/03-functions/create-middleware.md)
+- [API Reference: `createRouter` & `interceptFileRoutes`](../../docs/03-api-reference/03-functions/create-router.md)
 
 ---
 
 ## Installation
 
-Install `@skyjt/typed-routes-solid` alongside `filesystem-routing` and SolidJS dependencies:
-
 ```bash
-# Using Bun
-bun add @skyjt/typed-routes-solid filesystem-routing solid-js @solidjs/router @solidjs/web
-
-# Using pnpm
-pnpm add @skyjt/typed-routes-solid filesystem-routing solid-js @solidjs/router @solidjs/web
-
-# Using npm
-npm install @skyjt/typed-routes-solid filesystem-routing solid-js @solidjs/router @solidjs/web
-```
-
-Optionally install your preferred schema validation library:
-
-```bash
-bun add valibot
-# or: bun add zod
+bun add @skyjt/typed-routes @skyjt/typed-routes-solid filesystem-routing solid-js @solidjs/router @solidjs/web valibot
 ```
 
 ---
 
-## Setup Guide
+## Quick Usage
 
-### 1. Configure Vite (`vite.config.ts`)
-
-```ts
-import { defineConfig } from "vite";
-import solid from "@solidjs/vite-plugin";
-import { routes } from "@skyjt/typed-routes-solid/vite";
-
-export default defineConfig({
-  plugins: [
-    solid({
-      start: {
-        middleware: "src/middleware.ts",
-      },
-      ssr: true,
-      extensions: [".jsx", ".tsx"],
-    }),
-    routes({
-      codeSplitting: true,
-    }),
-  ],
-});
-```
-
-> **Note**: On startup, `filesystem-routing` generates `file-routes.d.ts` at the root of the project containing typed manifest tuples (`pageRoutes` and `routes`) corresponding to your route files.
-
----
-
-### 2. TypeScript Configuration (`tsconfig.json`)
-
-Include `"file-routes.d.ts"` in your `tsconfig.json`:
-
-```json
-{
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "preserve",
-    "jsxImportSource": "@solidjs/web",
-    "strict": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*", "file-routes.d.ts"]
-}
-```
-
----
-
-### 3. Route File Conventions
-
-Place page components and API endpoints inside `src/routes/`:
-
-```
-src/
-├── routes/
-│   ├── (main).tsx              # Layout component for "(main)" route group
-│   ├── (main)/
-│   │   ├── index.tsx           # /
-│   │   └── user/
-│   │       └── [id].tsx        # /user/:id
-│   ├── api/
-│   │   └── [...slug].ts        # /api/*
-│   └── [...404].tsx            # /*404
-├── router.ts                   # Router instance initialization
-├── middleware.ts               # Server fetch middleware
-├── app.tsx                     # Root component mounting <Router>
-└── index.tsx                   # Client entry point
-```
-
----
-
-### 4. Router Initialization (`src/router.ts`)
+### 1. Router Initialization (`src/router.ts`)
 
 ```ts
 import { pageRoutes } from "virtual:file-routes";
@@ -132,172 +49,54 @@ export const {
 });
 ```
 
----
-
-### 5. Application Root (`src/app.tsx`)
-
-```tsx
-import { Errored, Loading, type ParentProps } from "solid-js";
-import type { JSX } from "@solidjs/web";
-import { Router } from "~/router";
-
-export default function App(): JSX.Element {
-  return (
-    <Router>
-      {(props: ParentProps) => (
-        <Errored fallback={(error) => <div>An error occurred: {String(error())}</div>}>
-          <Loading fallback={<div>Loading page...</div>}>
-            {props.children}
-          </Loading>
-        </Errored>
-      )}
-    </Router>
-  );
-}
-```
-
----
-
-### 6. Defining Typed Routes (`src/routes/(main)/user/[id].tsx`)
+### 2. Validated Page Route with `errorComponent` (`src/routes/(main)/users/[id].tsx`)
 
 ```tsx
 import * as v from "valibot";
-import { defineRoute, validateData, type InferOutput } from "@skyjt/typed-routes-solid";
-import { query } from "@solidjs/router";
-import { createMemo, Errored, Loading } from "solid-js";
-
-const loadUserData = query(async (id: number) => {
-  "use server";
-  const res = await fetch(`https://api.example.com/users/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch user");
-  const data = await res.json();
-
-  const userSchema = v.object({
-    id: v.pipe(v.number(), v.minValue(1)),
-    name: v.string(),
-  });
-
-  const validated = validateData(userSchema, data);
-  if (!validated.success) throw new Error("Invalid user payload");
-  return validated.data;
-}, "user-data-query");
+import { defineRoute } from "@skyjt/typed-routes-solid";
+import { Link } from "../../../router";
 
 export const route = defineRoute({
   params: v.object({
     id: v.number(),
   }),
-  preload: async ({ params }) => {
-    return loadUserData(params.id);
-  },
+  errorComponent: (props) => (
+    <div role="alert">
+      <h2>Invalid User Identifier "{props.rawParams.id}"</h2>
+      <p>{props.error.message}</p>
+      <Link to="/users/">Return to Directory</Link>
+    </div>
+  ),
 });
 
-export default function UserRoute() {
+export default function UserDetailPage() {
   const params = route.useParams();
-  const userData = createMemo(() => loadUserData(params().id));
-
-  return (
-    <Errored fallback={<p>Error loading user.</p>}>
-      <Loading fallback={<p>Loading user data...</p>}>
-        <div>
-          <h1>User ID: {params().id}</h1>
-          <p>Name: {userData().name}</p>
-        </div>
-      </Loading>
-    </Errored>
-  );
+  return <h1>User ID: {params().id}</h1>;
 }
 ```
 
----
-
-### 7. Type-Safe Navigation (`<Link>` & `useNavigate`)
-
-```tsx
-import { Link, useNavigate, paths } from "../router";
-
-export function Navigation() {
-  const navigate = useNavigate();
-
-  return (
-    <nav class="flex gap-4">
-      <Link to="/">Home</Link>
-
-      <Link
-        to="/user/:id"
-        params={{ id: 42 }}
-        class="text-blue-600 underline"
-      >
-        User Profile
-      </Link>
-
-      <button
-        onClick={() => {
-          navigate("/user/:id", {
-            params: { id: 99 },
-          });
-        }}
-      >
-        Go to User 99
-      </button>
-
-      <a href={paths.build("/user/:id", { params: { id: 100 } })}>
-        External Link
-      </a>
-    </nav>
-  );
-}
-```
-
----
-
-## Server API Routes with `createMiddleware`
-
-### 1. Middleware Pipeline (`src/middleware.ts`)
+### 3. Server Middleware (`src/middleware.ts`)
 
 ```ts
 import routes from "virtual:file-routes";
 import { createMiddleware } from "@skyjt/typed-routes-solid";
 
-export default [
-  createMiddleware(routes),
-];
-```
-
-### 2. API Server (`src/server/index.ts`)
-
-```ts
-import Elysia from "elysia";
-
-const app = new Elysia({ prefix: "/api" })
-  .get("/", () => ({ message: "API Service" }))
-  .get("/ping", ({ request }) => ({
-    status: "active",
-    timestamp: Date.now(),
-    url: request.url,
-  }));
-
-export default app;
-export type AppType = typeof app;
-```
-
-### 3. API Catch-All Route (`src/routes/api/[...slug].ts`)
-
-```ts
-import type { APIEvent } from "filesystem-routing/api";
-import app from "~/server";
-
-async function handleRequest(event: APIEvent): Promise<Response> {
-  return app.fetch(event.request, event);
-}
-
-export const GET = handleRequest;
-export const QUERY = handleRequest;
-export const POST = handleRequest;
-export const PUT = handleRequest;
-export const PATCH = handleRequest;
-export const DELETE = handleRequest;
-export const HEAD = handleRequest;
-export const OPTIONS = handleRequest;
+export default createMiddleware(routes, {
+  onValidationError({ error, rawParams, rawSearch, isPage }) {
+    if (isPage) {
+      return;
+    }
+    return Response.json(
+      {
+        error: "Route Validation Error",
+        target: error.target,
+        issues: error.issues,
+        received: { params: rawParams, search: rawSearch },
+      },
+      { status: 400 },
+    );
+  },
+});
 ```
 
 ---

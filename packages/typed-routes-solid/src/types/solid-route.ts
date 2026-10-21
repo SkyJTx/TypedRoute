@@ -4,16 +4,41 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { Accessor } from "solid-js";
+import type { Accessor, Component } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Location } from "@solidjs/router";
 import type {
   RouteConfig,
+  RouteValidationError,
+  TypedAPIHandler,
   ExtractRoutePaths,
   RouteParamsFor,
   RouteSearchFor,
   NavigationArgs,
 } from "@skyjt/typed-routes";
+
+/**
+ * Props passed to a route validation error component when params or search fail schema validation.
+ */
+export interface RouteValidationErrorProps {
+  error: RouteValidationError;
+  rawParams: Record<string, string | undefined>;
+  rawSearch: Record<string, unknown>;
+}
+
+/**
+ * SolidJS route configuration extending core RouteConfig with an optional errorComponent fallback.
+ */
+export interface SolidRouteConfig<
+  TParams = unknown,
+  TSearch = unknown,
+  TState = unknown,
+  THash = unknown,
+  TData = unknown,
+> extends RouteConfig<TParams, TSearch, TState, THash, TData, Location<TState>> {
+  errorComponent?: Component<RouteValidationErrorProps>;
+  passThroughError?: boolean;
+}
 
 /**
  * Route validation context accessors for SolidJS.
@@ -28,10 +53,13 @@ export interface RouteValidationContextValue<
   search: Accessor<TSearch>;
   state: Accessor<TState | undefined>;
   hash: Accessor<THash | undefined>;
+  error: Accessor<RouteValidationError | undefined>;
+  rawParams: Accessor<Record<string, string | undefined>>;
+  rawSearch: Accessor<Record<string, unknown>>;
 }
 
 /**
- * SolidJS route hooks and configuration bound to route schemas.
+ * SolidJS route hooks, API handler helper, and configuration bound to route schemas.
  */
 export interface DefinedRouteObject<
   TParams = unknown,
@@ -40,10 +68,14 @@ export interface DefinedRouteObject<
   THash = unknown,
   TData = unknown,
 > {
-  readonly config: RouteConfig<TParams, TSearch, TState, THash, TData, Location<TState>>;
+  readonly config: SolidRouteConfig<TParams, TSearch, TState, THash, TData>;
   useParams(): Accessor<TParams>;
   useSearch(): Accessor<TSearch>;
+  useError(): Accessor<RouteValidationError | undefined>;
   useLocation(): Location<TState>;
+  handler<TResult = unknown>(
+    fn: TypedAPIHandler<TParams, TSearch, TResult>,
+  ): TypedAPIHandler<TParams, TSearch, TResult>;
 }
 
 /**
