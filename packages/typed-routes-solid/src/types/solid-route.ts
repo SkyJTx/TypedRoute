@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { Accessor, Component } from "solid-js";
+import type { Accessor } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Location } from "@solidjs/router";
 import type {
@@ -18,16 +18,20 @@ import type {
 } from "@skyjt/typed-routes";
 
 /**
- * Props passed to a route validation error component when params or search fail schema validation.
+ * Reactive SolidJS tuple of accessors returned by `route.useParams()` and `route.useSearch()`.
+ *
+ * Follows Solid's `createSignal` convention: unpacked once at component setup
+ * (`const [params, paramsError] = route.useParams()`), where `params()` and `paramsError()`
+ * are fine-grained reactive accessors. Pair with `<Show when={params()}>` to promote `params`
+ * to `Accessor<NonNullable<T>>`.
  */
-export interface RouteValidationErrorProps {
-  error: RouteValidationError;
-  rawParams: Record<string, string | undefined>;
-  rawSearch: Record<string, unknown>;
-}
+export type RouteAccessorTuple<T> = readonly [
+  data: Accessor<T | undefined>,
+  error: Accessor<RouteValidationError | undefined>,
+];
 
 /**
- * SolidJS route configuration extending core RouteConfig with an optional errorComponent fallback.
+ * SolidJS route configuration extending core RouteConfig with SolidJS Location type.
  */
 export interface SolidRouteConfig<
   TParams = unknown,
@@ -35,10 +39,7 @@ export interface SolidRouteConfig<
   TState = unknown,
   THash = unknown,
   TData = unknown,
-> extends RouteConfig<TParams, TSearch, TState, THash, TData, Location<TState>> {
-  errorComponent?: Component<RouteValidationErrorProps>;
-  passThroughError?: boolean;
-}
+> extends RouteConfig<TParams, TSearch, TState, THash, TData, Location<TState>> {}
 
 /**
  * Route validation context accessors for SolidJS.
@@ -49,13 +50,10 @@ export interface RouteValidationContextValue<
   TState = unknown,
   THash = unknown,
 > {
-  params: Accessor<TParams>;
-  search: Accessor<TSearch>;
+  params: RouteAccessorTuple<TParams>;
+  search: RouteAccessorTuple<TSearch>;
   state: Accessor<TState | undefined>;
   hash: Accessor<THash | undefined>;
-  error: Accessor<RouteValidationError | undefined>;
-  rawParams: Accessor<Record<string, string | undefined>>;
-  rawSearch: Accessor<Record<string, unknown>>;
 }
 
 /**
@@ -69,9 +67,8 @@ export interface DefinedRouteObject<
   TData = unknown,
 > {
   readonly config: SolidRouteConfig<TParams, TSearch, TState, THash, TData>;
-  useParams(): Accessor<TParams>;
-  useSearch(): Accessor<TSearch>;
-  useError(): Accessor<RouteValidationError | undefined>;
+  useParams(): RouteAccessorTuple<TParams>;
+  useSearch(): RouteAccessorTuple<TSearch>;
   useLocation(): Location<TState>;
   handler<TResult = unknown>(
     fn: TypedAPIHandler<TParams, TSearch, TResult>,

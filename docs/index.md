@@ -2,7 +2,7 @@
 
 Welcome to the official documentation for [`@skyjt/typed-routes`](../packages/typed-routes) and [`@skyjt/typed-routes-solid`](../packages/typed-routes-solid).
 
-TypedRoute provides end-to-end compile-time typed routes, Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, ArkType), reactive route error boundaries, URL path construction, and full-stack request middleware on top of [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+TypedRoute provides end-to-end compile-time typed routes, Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, ArkType), reactive validation tuples (`[data, error]`), URL path construction, and full-stack request middleware on top of [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 ---
 
@@ -25,7 +25,7 @@ Explore how to define route schemas, navigate with compile-time safety, handle v
 | :--- | :--- |
 | **[Defining Routes](./02-routing/01-defining-routes.md)** | Define pages, layouts, and validated `params` / `search` schemas with automatic primitive coercion. |
 | **[Linking and Navigating](./02-routing/02-linking-and-navigating.md)** | Navigate between routes using `<Link>`, `useNavigate()`, and `paths.build()`. |
-| **[Error Handling](./02-routing/03-error-handling.md)** | Render per-route `errorComponent` fallbacks when URL parameters or search queries fail schema validation. |
+| **[Error Handling](./02-routing/03-error-handling.md)** | Handle URL parameter and search query validation errors with reactive `RouteAccessorTuple` accessors and `<Show>`. |
 | **[Route Handlers and Middleware](./02-routing/04-route-handlers-and-middleware.md)** | Build typed API endpoints with `route.handler()` and validate incoming requests with `createMiddleware()`. |
 
 ---
@@ -36,19 +36,19 @@ Detailed reference specifications for components, file conventions, functions, a
 
 ### Components
 
-- **[`<Link>`](./03-api-reference/01-components/link.md)** — Type-safe anchor component for client-side navigation.
+- **[`<Link>`](./03-api-reference/01-components/link.md)** ï¿½ Type-safe anchor component for client-side navigation.
 
 ### File-System Conventions
 
-- **[Route File Exports](./03-api-reference/02-file-conventions/route-file-exports.md)** — Special exports recognized in route files (`route`, `default`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `QUERY`).
+- **[Route File Exports](./03-api-reference/02-file-conventions/route-file-exports.md)** ï¿½ Special exports recognized in route files (`route`, `default`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `QUERY`).
 
 ### Functions
 
-- **[`defineRoute`](./03-api-reference/03-functions/define-route.md)** — Declare route schemas, preloading, error boundaries, reactive hooks, and typed API handlers.
-- **[`createMiddleware`](./03-api-reference/03-functions/create-middleware.md)** — Server fetch middleware for API dispatch, schema validation, and `isPage` error routing.
-- **[`createRouter` & `interceptFileRoutes`](./03-api-reference/03-functions/create-router.md)** — Initialize the SolidJS router and bind validation providers to the route manifest.
-- **[`useNavigate`, `buildUrl`, & `validateData`](./03-api-reference/03-functions/use-navigate-and-paths.md)** — Programmatic navigation, URL serialization, and Universal Schema validation utilities.
+- **[`defineRoute`](./03-api-reference/03-functions/define-route.md)** ï¿½ Declare route schemas, preloading, validation error telemetry, reactive hooks, and typed API handlers.
+- **[`createMiddleware`](./03-api-reference/03-functions/create-middleware.md)** ï¿½ Server fetch middleware for API dispatch, schema validation, and `isPage` error routing.
+- **[`createRouter` & `interceptFileRoutes`](./03-api-reference/03-functions/create-router.md)** ï¿½ Initialize the SolidJS router and bind validation providers to the route manifest.
+- **[`useNavigate`, `buildUrl`, & `validateData`](./03-api-reference/03-functions/use-navigate-and-paths.md)** ï¿½ Programmatic navigation, URL serialization, and Universal Schema validation utilities.
 
 ### Configuration
 
-- **[`routes()` Vite Plugin](./03-api-reference/04-configuration/vite-plugin.md)** — Vite plugin configuration for `@skyjt/typed-routes/vite` and `@skyjt/typed-routes-solid/vite`.
+- **[`routes()` Vite Plugin](./03-api-reference/04-configuration/vite-plugin.md)** ï¿½ Vite plugin configuration for `@skyjt/typed-routes/vite` and `@skyjt/typed-routes-solid/vite`.

@@ -4,15 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { TypeValidator, InferOutput } from "../types/type-validator";
+import type { TypeValidator, InferOutput } from "~/types/type-validator";
 import type {
   DefinedRouteConfig,
   RouteConfig,
   RouteLocation,
   RouteValidationError,
+  RouteValidationTuple,
   TypedAPIHandler,
-} from "../types/route-definition";
-import { CUSTOM_INSPECT_SYMBOL, inspectRoute, type RouteDebugSummary } from "../debug/inspect";
+} from "~/types/route-definition";
+import { CUSTOM_INSPECT_SYMBOL, inspectRoute, type RouteDebugSummary } from "~/debug/inspect";
 
 /**
  * Monomorphic prototype-shared route definition class.
@@ -79,8 +80,8 @@ export function defineRoute<
   state?: St;
   hash?: H;
   preload?: (args: {
-    params: InferOutput<P>;
-    search: InferOutput<S>;
+    params: RouteValidationTuple<InferOutput<P>>;
+    search: RouteValidationTuple<InferOutput<S>>;
     location: RouteLocation<InferOutput<St>>;
   }) => D;
   onError?: (args: {

@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
-import { useNavigate, Link } from "../../../router";
-import { createUser } from "../../../services/api-client";
+import { useNavigate, Link } from "~/router";
+import { createUser } from "~/services/api-client";
 
 export default function NewUserPage() {
   const navigate = useNavigate();

@@ -11,6 +11,10 @@ export default defineConfig({
     index: "src/index.ts",
     "vite/index": "src/vite/index.ts",
   },
+  alias: {
+    "~": "./src",
+    "@": "./src",
+  },
   format: ["esm"],
   dts: true,
   sourcemap: true,

@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { isStandardSchema, isZodSchema } from "../schema/validator-adapter";
+import { isStandardSchema, isZodSchema } from "~/schema/validator-adapter";
 
 /**
  * Standard symbol recognized by Node.js, Bun (JavaScriptCore), and Deno for custom object inspection.

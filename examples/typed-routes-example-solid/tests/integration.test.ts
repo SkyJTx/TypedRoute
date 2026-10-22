@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { apiMiddleware } from "../src/middleware";
+import { apiMiddleware } from "~/middleware";
 import { app } from "../server/index";
 
 describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", () => {
@@ -169,7 +169,7 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       expect(html).toContain("Personnel Profile #");
     });
 
-    it("renders route.config.errorComponent on invalid UI path parameter GET /users/d during SSR without 500 error", async () => {
+    it("renders UI validation error fallback on invalid UI path parameter GET /users/d during SSR without 500 error", async () => {
       const req = new Request("http://localhost:3000/users/d");
       const res = await app.fetch(req);
       expect(res.status).toBe(200);
@@ -178,7 +178,7 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       expect(html).toContain("Return to Personnel Directory");
     });
 
-    it("renders route.config.errorComponent on invalid UI search query GET /users/?role=invalid_role during SSR without 500 error", async () => {
+    it("renders UI validation error fallback on invalid UI search query GET /users/?role=invalid_role during SSR without 500 error", async () => {
       const req = new Request("http://localhost:3000/users/?role=invalid_role");
       const res = await app.fetch(req);
       expect(res.status).toBe(200);

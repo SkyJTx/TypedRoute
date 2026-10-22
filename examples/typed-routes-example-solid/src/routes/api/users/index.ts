@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { defineRoute } from "@skyjt/typed-routes-solid";
-import { usersStore, type UserRecord } from "../../../services/db";
+import { usersStore, type UserRecord } from "~/services/db";
 
 export const route = defineRoute({
   search: v.object({

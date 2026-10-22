@@ -80,7 +80,7 @@ export type FindRouteEntry<TManifest extends readonly unknown[], TargetPath exte
 export type RouteParamsFor<TManifest extends readonly unknown[], Path extends string> =
   FindRouteEntry<TManifest, Path> extends infer Entry
     ? Entry extends { $$route: { require(): { route: infer R } } }
-      ? R extends { useParams(): () => infer P }
+      ? R extends { useParams(): readonly [() => infer P, unknown] }
         ? [unknown] extends [P]
           ? Simplify<ExtractPathParams<Path>>
           : [NonNullable<P>] extends [never]
@@ -102,7 +102,7 @@ export type RouteParamsFor<TManifest extends readonly unknown[], Path extends st
 export type RouteSearchFor<TManifest extends readonly unknown[], Path extends string> =
   FindRouteEntry<TManifest, Path> extends infer Entry
     ? Entry extends { $$route: { require(): { route: infer R } } }
-      ? R extends { useSearch(): () => infer S }
+      ? R extends { useSearch(): readonly [() => infer S, unknown] }
         ? [unknown] extends [S]
           ? Record<string, string | number | boolean | string[] | undefined>
           : [NonNullable<S>] extends [never]

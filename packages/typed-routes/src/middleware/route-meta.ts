@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { RouteConfig, MiddlewareRouteEntry } from "../types/route-definition";
+import type { RouteConfig, MiddlewareRouteEntry } from "~/types/route-definition";
 import {
   CUSTOM_INSPECT_SYMBOL,
   ROUTE_FLAG_CONFIG_RESOLVED,
@@ -13,7 +13,7 @@ import {
   formatRouteFlags,
   inspectRoute,
   type InspectableRouteConfig,
-} from "../debug/inspect";
+} from "~/debug/inspect";
 
 /**
  * Runtime guard narrowing an unknown value to a non-null key-value record.

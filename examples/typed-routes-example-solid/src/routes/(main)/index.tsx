@@ -1,6 +1,6 @@
 ﻿import { createSignal, createEffect } from "solid-js";
-import { Link } from "../../router";
-import { fetchHealth } from "../../services/api-client";
+import { Link } from "~/router";
+import { fetchHealth } from "~/services/api-client";
 
 export default function DashboardPage() {
   const [healthStatus, setHealthStatus] = createSignal<{ status: string; uptime: number } | null>(null);

@@ -30,6 +30,7 @@ export type {
   MiddlewareRouteEntry,
   TypedAPIEvent,
   TypedAPIHandler,
+  RouteValidationTuple,
 } from "./types/route-definition";
 export { RouteValidationError } from "./types/route-definition";
 
@@ -57,6 +58,7 @@ export {
   ValidationOutcome,
   compileValidator,
   validateData,
+  evaluateRouteTarget,
   isStandardSchema,
   isZodSchema,
   type CompiledValidator,

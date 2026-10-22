@@ -31,7 +31,7 @@ export const {
 Use `<Link>` to render an `<a>` element with compile-time validation for `to`, `params`, and `search`:
 
 ```tsx
-import { Link } from "../router";
+import { Link } from "~/router";
 
 export function UserDirectoryActions() {
   return (
@@ -60,7 +60,7 @@ export function UserDirectoryActions() {
 Call `useNavigate()` inside a component to navigate imperatively in event handlers or actions:
 
 ```tsx
-import { useNavigate } from "../router";
+import { useNavigate } from "~/router";
 
 export function SearchToolbar() {
   const navigate = useNavigate();

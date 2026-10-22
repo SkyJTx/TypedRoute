@@ -1,6 +1,6 @@
 # `createRouter` and `interceptFileRoutes`
 
-`createRouter` and `interceptFileRoutes` initialize the `@solidjs/router` instance from the `pageRoutes` manifest tuple and wrap each route component in `RouteValidationProvider`.
+`createRouter` and `interceptFileRoutes` initialize the `@solidjs/router` instance from the `pageRoutes` manifest tuple and wrap each route component in `RouteValidationProvider` to supply reactive `RouteAccessorTuple` context (`[data, error]` accessors for `useParams()` / `useSearch()`).
 
 ```ts
 // src/router.ts
@@ -22,17 +22,23 @@ export const {
 
 ## Reference
 
-### `interceptFileRoutes(entries, options?)`
+### `interceptFileRoutes(entries)`
 
-Transforms the `pageRoutes` tuple from `"virtual:file-routes"` into an array of `@solidjs/router` `RouteDefinition` objects with automatic schema validation and error boundary wrapping.
+Transforms the `pageRoutes` tuple from `"virtual:file-routes"` into an array of `@solidjs/router` `RouteDefinition` objects with automatic schema validation and preloading.
+
+#### Signature
+
+```ts
+function interceptFileRoutes<const TManifest extends readonly unknown[]>(
+  entries: TManifest,
+): RouteDefinition[];
+```
 
 #### Parameters
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `entries` | `TManifest` (`readonly FileRouteEntry[]`) | **Required** | The `pageRoutes` manifest array exported by `"virtual:file-routes"`. |
-| `options` | `InterceptRoutesOptions` | `undefined` | Optional configuration for route interception. |
-| `options.defaultErrorComponent` | `Component<RouteValidationErrorProps>` | `DefaultRouteErrorFallback` | Global fallback component rendered when a route fails `params` or `search` validation and does not define its own `errorComponent` in `defineRoute`. |
 
 #### Returns
 
@@ -62,7 +68,7 @@ Creates a SolidJS router instance bound to the compile-time route manifest type 
 | `routes` | `RouteDefinition[]` | The underlying route definitions array. |
 
 > **Good to know**:
-> - `interceptFileRoutes` resolves `entry.$$route?.require()?.route` lazily via an internal getter (`getConfig()`). If a route file imports `Link` from `src/router.ts` inside `defineRoute({ errorComponent })`, `interceptFileRoutes` completes without throwing a ReferenceError during circular module initialization and resolves the route's config when the component renders or preloads.
+> - `interceptFileRoutes` resolves `entry.$$route?.require()?.route` lazily via an internal getter (`getRouteConfig()`). If a route file imports `Link` from `src/router.ts` inside its module, `interceptFileRoutes` completes without throwing a ReferenceError during circular module initialization and resolves the route's config when the component renders or preloads.
 
 ---
 
@@ -70,5 +76,6 @@ Creates a SolidJS router instance bound to the compile-time route manifest type 
 
 | Version | Changes |
 | :--- | :--- |
-| `v0.3.0` | Added `InterceptRoutesOptions` (`defaultErrorComponent`), lazy `$$route` resolution for circular SSR imports, and re-exported `RouteSectionProps`, `Location`, and `RouteDefinition`. |
+| `v0.5.0` | Removed `InterceptRoutesOptions` and `defaultErrorComponent`. Intercepts routes to provide `RouteAccessorTuple` context and `RouteValidationTuple` preloading. |
+| `v0.3.0` | Added lazy `$$route` resolution for circular SSR imports, and re-exported `RouteSectionProps`, `Location`, and `RouteDefinition`. |
 | `v0.1.0` | Initial release of `createRouter` and `interceptFileRoutes`. |

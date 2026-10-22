@@ -1,5 +1,21 @@
 # @skyjt/typed-routes-solid
 
+## 0.5.0
+
+### Minor Changes
+
+- **`RouteAccessorTuple` Reactive Hooks**:
+  - Updated `route.useParams()` and `route.useSearch()` to return reactive SolidJS `RouteAccessorTuple<T>` accessors (`const [params, paramsError] = route.useParams()`, `const [search, searchError] = route.useSearch()`), unpacked once at component setup following Solid's `createSignal` convention.
+  - Added `createRouteAccessorTuple` and `RouteAccessorTuple<T>` (`readonly [data: Accessor<T | undefined>, error: Accessor<RouteValidationError | undefined>]`), pairing with Solid's `<Show when={params()}>` to promote `validParams` to a non-nullable `Accessor<TParams>` with zero component remounts on sibling navigation.
+  - Removed `errorComponent`, `passThroughError`, `RouteValidationErrorProps`, and `route.useError()`. UI components handle validation errors directly in standard component render flow via `<Show>` or accessor checks.
+  - Removed `InterceptRoutesOptions` and `defaultErrorComponent` from `interceptFileRoutes`.
+  - Updated `interceptFileRoutes` and route preloading to pass discriminated `RouteValidationTuple` values to route `preload` functions.
+
+### Patch Changes
+
+- Updated dependencies
+  - @skyjt/typed-routes@0.6.0
+
 ## 0.4.0
 
 ### Minor Changes

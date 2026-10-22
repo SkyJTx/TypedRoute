@@ -9,19 +9,14 @@ import type { JSX } from "@solidjs/web";
 import type { RouteDefinition, RouteSectionProps, Location } from "@solidjs/router";
 import {
   EMPTY_RECORD,
-  RouteValidationError,
-  validateData,
+  evaluateRouteTarget,
   normalizeSearchParams,
   type FileRouteEntry,
   type FileRouteLazyRef,
   type FileRouteEagerRef,
 } from "@skyjt/typed-routes";
-import type { RouteValidationErrorProps, SolidRouteConfig } from "../types/solid-route";
-import { RouteValidationProvider } from "../context/route-context";
-
-export interface InterceptRoutesOptions {
-  defaultErrorComponent?: Component<RouteValidationErrorProps>;
-}
+import type { SolidRouteConfig } from "~/types/solid-route";
+import { RouteValidationProvider } from "~/context/route-context";
 
 const EMPTY_SOLID_CONFIG: SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> =
   Object.freeze({});
@@ -31,7 +26,6 @@ const EMPTY_SOLID_CONFIG: SolidRouteConfig<unknown, unknown, unknown, unknown, u
  */
 export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
   entries: TManifest,
-  options?: InterceptRoutesOptions,
 ): RouteDefinition[] {
   const componentCache = new Map<string, Component<RouteSectionProps>>();
 
@@ -92,7 +86,6 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
           get config() {
             return getRouteConfig();
           },
-          defaultErrorComponent: options?.defaultErrorComponent,
           get children() {
             return createComponent(RawComp, props);
           },
@@ -124,33 +117,25 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
           ? normalizeSearchParams(locationObj.query)
           : (EMPTY_RECORD as Record<string, unknown>);
 
-        const paramsRes = validateData(currentConfig.params, rawParams);
-        if (!paramsRes.success && currentConfig.onError) {
-          currentConfig.onError({
-            error: new RouteValidationError("params", paramsRes.issues ?? [], {
-              rawParams,
-              rawSearch,
-            }),
-            rawParams,
-            rawSearch,
-          });
-        }
-
-        const searchRes = validateData(currentConfig.search, rawSearch);
-        if (!searchRes.success && currentConfig.onError) {
-          currentConfig.onError({
-            error: new RouteValidationError("search", searchRes.issues ?? [], {
-              rawParams,
-              rawSearch,
-            }),
-            rawParams,
-            rawSearch,
-          });
-        }
+        const context = { rawParams, rawSearch };
+        const paramsTuple = evaluateRouteTarget(
+          "params",
+          currentConfig.params,
+          rawParams,
+          context,
+          currentConfig.onError,
+        );
+        const searchTuple = evaluateRouteTarget(
+          "search",
+          currentConfig.search,
+          rawSearch,
+          context,
+          currentConfig.onError,
+        );
 
         return currentConfig.preload({
-          params: paramsRes.data,
-          search: searchRes.data,
+          params: paramsTuple,
+          search: searchTuple,
           location: args.location as Location,
         });
       };

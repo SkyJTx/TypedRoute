@@ -12,12 +12,12 @@ import type {
 import type {
   MiddlewareHandlerRef,
   MiddlewareRouteEntry,
-} from "../types/route-definition";
+} from "~/types/route-definition";
 import {
   ROUTE_FLAG_NONE,
   ROUTE_FLAG_IS_PAGE,
   ROUTE_FLAG_VALIDATION_ONLY,
-} from "../debug/inspect";
+} from "~/debug/inspect";
 import { RouteNodeMeta, extractRouteConfig } from "./route-meta";
 
 export type HttpMethod =

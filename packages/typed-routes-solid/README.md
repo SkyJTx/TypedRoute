@@ -1,6 +1,6 @@
 # `@skyjt/typed-routes-solid`
 
-> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive parameter validation, route-level `errorComponent` boundaries, preloading, API request middleware, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive parameter validation, reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), preloading, API request middleware, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -13,7 +13,7 @@ See the full [TypedRoute Documentation](../../docs/index.md):
 - [Installation & Setup](../../docs/01-getting-started/01-installation.md)
 - [Defining Routes](../../docs/02-routing/01-defining-routes.md)
 - [Linking and Navigating](../../docs/02-routing/02-linking-and-navigating.md)
-- [Error Handling (`errorComponent` & `useError`)](../../docs/02-routing/03-error-handling.md)
+- [Error Handling (`RouteAccessorTuple` & `[data, error]`)](../../docs/02-routing/03-error-handling.md)
 - [Route Handlers and Middleware (`route.handler` & `isPage`)](../../docs/02-routing/04-route-handlers-and-middleware.md)
 - [API Reference: `<Link>`](../../docs/03-api-reference/01-components/link.md)
 - [API Reference: `defineRoute`](../../docs/03-api-reference/03-functions/define-route.md)
@@ -49,29 +49,37 @@ export const {
 });
 ```
 
-### 2. Validated Page Route with `errorComponent` (`src/routes/(main)/users/[id].tsx`)
+### 2. Validated Page Route with `RouteAccessorTuple` (`src/routes/(main)/users/[id].tsx`)
 
 ```tsx
 import * as v from "valibot";
+import { Show } from "solid-js";
 import { defineRoute } from "@skyjt/typed-routes-solid";
-import { Link } from "../../../router";
+import { Link } from "~/router";
 
 export const route = defineRoute({
   params: v.object({
     id: v.number(),
   }),
-  errorComponent: (props) => (
-    <div role="alert">
-      <h2>Invalid User Identifier "{props.rawParams.id}"</h2>
-      <p>{props.error.message}</p>
-      <Link to="/users/">Return to Directory</Link>
-    </div>
-  ),
 });
 
 export default function UserDetailPage() {
-  const params = route.useParams();
-  return <h1>User ID: {params().id}</h1>;
+  const [params, paramsError] = route.useParams();
+
+  return (
+    <Show
+      when={params()}
+      fallback={
+        <div role="alert">
+          <h2>Invalid User Identifier "{paramsError()?.rawParams.id}"</h2>
+          <p>{paramsError()?.message}</p>
+          <Link to="/users/">Return to Directory</Link>
+        </div>
+      }
+    >
+      {(validParams) => <h1>User ID: {validParams().id}</h1>}
+    </Show>
+  );
 }
 ```
 

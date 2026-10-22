@@ -74,7 +74,7 @@ function createMiddleware(
 > - **How `isPage` is calculated**: Internally, `createMiddleware` builds a `WeakMap<APIHandlerRef, MatchedRouteMetadata>` (`buildMatcherAndMetadata`) during initialization. For each matched route, `isPage` is computed deterministically as:
 >   $$\text{isPage} = (\text{route.page} === \text{true}) \land (\text{request.method} \in \{\text{"GET"}, \text{"HEAD"}\})$$
 >   Unlike `filesystem-routing/api`'s internal `createAPIMatcher` (which checks `route.page === true && route.$component !== undefined` and only indexes routes with HTTP handlers), `createMiddleware` tracks `MatchedRouteMetadata` directly without mutating `$component` or executing synthetic handler functions.
-> - **When `isPage` is `true` on validation failure**: If `options.onValidationError` is omitted or returns `void`/`undefined`, `createMiddleware` attaches `event.validationError = error` onto the request event and calls `return next()` so Solid SSR renders the route's `errorComponent` (or `defaultErrorComponent`). If `options.onValidationError` returns a `Response` (for example, `Response.redirect(...)`), that response is returned immediately.
+> - **When `isPage` is `true` on validation failure**: If `options.onValidationError` is omitted or returns `void`/`undefined`, `createMiddleware` attaches `event.validationError = error` onto the request event and calls `return next()` so Solid SSR proceeds to render the UI page with validation error tuples (`[undefined, error]`). If `options.onValidationError` returns a `Response` (for example, `Response.redirect(...)`), that response is returned immediately.
 > - **When `isPage` is `false` on validation failure**: If `options.onValidationError` returns `void`/`undefined`, `createMiddleware` automatically returns a `400 Bad Request` JSON response (`{ error: "Validation Failed", target, issues }`).
 
 ---
@@ -86,7 +86,7 @@ function createMiddleware(
 ```ts
 // server/index.ts
 import { Hono } from "hono";
-import { apiMiddleware } from "../src/middleware";
+import { apiMiddleware } from "~/middleware";
 
 const app = new Hono();
 
@@ -124,7 +124,7 @@ export default createMiddleware(routes, {
 
 | Version | Changes |
 | :--- | :--- |
-| `v0.4.0` | Accepted `virtual:file-routes` without casts (`MiddlewareRouteEntry`), added deterministic `isPage` calculation via `MatchedRouteMetadata`, and enabled UI page validation fallthrough to SSR `errorComponent`. |
+| `v0.4.0` | Accepted `virtual:file-routes` without casts (`MiddlewareRouteEntry`), added deterministic `isPage` calculation via `MatchedRouteMetadata`, and enabled UI page validation fallthrough to SSR. |
 | `v0.2.0` | Added zero-allocation ASCII URL scanner (`parseFastUrl`). |
 | `v0.1.1` | Added support for Solid 2.0 `RequestEvent` objects and zero-argument `next()` invocation. |
 | `v0.1.0` | Initial release of `createMiddleware`. |

@@ -5,15 +5,15 @@
  */
 
 import { createAPIMatcher, type APIEvent } from "filesystem-routing/api";
-import type { MiddlewareRouteEntry, RouteConfig } from "../types/route-definition";
-import { RouteValidationError } from "../types/route-definition";
-import type { ValidationIssue } from "../types/type-validator";
-import { validateData } from "../schema/validator-adapter";
-import { EMPTY_RECORD, parseFastQueryString } from "../schema/coercion";
+import type { MiddlewareRouteEntry, RouteConfig } from "~/types/route-definition";
+import { RouteValidationError } from "~/types/route-definition";
+import type { ValidationIssue } from "~/types/type-validator";
+import { validateData } from "~/schema/validator-adapter";
+import { EMPTY_RECORD, parseFastQueryString } from "~/schema/coercion";
 import {
   ROUTE_FLAG_IS_PAGE,
   ROUTE_FLAG_VALIDATION_ONLY,
-} from "../debug/inspect";
+} from "~/debug/inspect";
 import { parseFastUrl, type ParsedUrl } from "./url-scanner";
 import { RouteNodeMeta, resolveRouteConfig } from "./route-meta";
 import {
@@ -57,7 +57,7 @@ export interface MiddlewareOptions {
   /**
    * Callback invoked on validation failure. Returning a Response terminates the chain.
    * For UI page routes (`isPage: true`), returning `void`/`undefined` allows the request
-   * to proceed to SSR where the route's `errorComponent` handles the error.
+   * to proceed to SSR where the UI route component handles the validation error tuple.
    */
   onValidationError?: (args: {
     error: RouteValidationError;

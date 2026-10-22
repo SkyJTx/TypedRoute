@@ -9,21 +9,22 @@ import {
   createComponent,
   createMemo,
   useContext,
-  type Component,
   type ParentProps,
 } from "solid-js";
-import { Dynamic, type JSX } from "@solidjs/web";
+import type { JSX } from "@solidjs/web";
 import { useParams, useLocation, useSearchParams } from "@solidjs/router";
 import {
   RouteValidationError,
+  evaluateRouteTarget,
   validateData,
   normalizeSearchParams,
+  type RouteValidationTuple,
 } from "@skyjt/typed-routes";
 import type {
+  RouteAccessorTuple,
   RouteValidationContextValue,
-  RouteValidationErrorProps,
   SolidRouteConfig,
-} from "../types/solid-route";
+} from "~/types/solid-route";
 
 const RouteValidationContext = createContext<
   RouteValidationContextValue<unknown, unknown, unknown, unknown> | null
@@ -31,111 +32,57 @@ const RouteValidationContext = createContext<
   name: "RouteValidationContext",
 });
 
-function DefaultRouteErrorFallback(props: RouteValidationErrorProps): JSX.Element {
-  return createComponent(Dynamic, {
-    component: "div",
-    role: "alert",
-    "data-route-validation-error": props.error.target,
-    get children() {
-      return props.error.message;
-    },
+/**
+ * Creates a fine-grained [dataAccessor, errorAccessor] tuple from a validation tuple memo.
+ */
+export function createRouteAccessorTuple<T>(
+  computeTuple: () => RouteValidationTuple<T>,
+): RouteAccessorTuple<T> {
+  const tupleMemo = createMemo(computeTuple);
+  const data = createMemo<T | undefined>(function readValidatedData() {
+    return tupleMemo()[0];
   });
+  const error = createMemo<RouteValidationError | undefined>(function readValidationError() {
+    return tupleMemo()[1];
+  });
+  return [data, error] as const;
 }
 
 /**
- * Context provider supplying validated route parameters, search queries, and error fallback boundary.
+ * Context provider supplying reactive [data, error] accessor tuples for route parameters and search queries.
  */
 export function RouteValidationProvider<TParams, TSearch, TState, THash, TData>(
   props: ParentProps<{
     config?: SolidRouteConfig<TParams, TSearch, TState, THash, TData>;
-    defaultErrorComponent?: Component<RouteValidationErrorProps>;
   }>,
 ): JSX.Element {
   const rawParams = useParams();
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  const validationState = createMemo(() => {
+  const params = createRouteAccessorTuple<TParams>(() => {
     const rawParamsSnapshot: Record<string, string | undefined> = { ...rawParams };
     const normalizedSearch = normalizeSearchParams(searchParams);
-
-    const paramsRes = validateData<TParams>(props.config?.params, rawParamsSnapshot);
-    if (!paramsRes.success) {
-      const err = new RouteValidationError("params", paramsRes.issues ?? [], {
-        rawParams: rawParamsSnapshot,
-        rawSearch: normalizedSearch,
-      });
-      if (props.config?.onError) {
-        props.config.onError({
-          error: err,
-          rawParams: rawParamsSnapshot,
-          rawSearch: normalizedSearch,
-        });
-      }
-      return {
-        ok: false as const,
-        error: err,
-        params: undefined as unknown as TParams,
-        search: undefined as unknown as TSearch,
-        rawParams: rawParamsSnapshot,
-        rawSearch: normalizedSearch,
-      };
-    }
-
-    const searchRes = validateData<TSearch>(props.config?.search, normalizedSearch);
-    if (!searchRes.success) {
-      const err = new RouteValidationError("search", searchRes.issues ?? [], {
-        rawParams: rawParamsSnapshot,
-        rawSearch: normalizedSearch,
-      });
-      if (props.config?.onError) {
-        props.config.onError({
-          error: err,
-          rawParams: rawParamsSnapshot,
-          rawSearch: normalizedSearch,
-        });
-      }
-      return {
-        ok: false as const,
-        error: err,
-        params: paramsRes.data as TParams,
-        search: undefined as unknown as TSearch,
-        rawParams: rawParamsSnapshot,
-        rawSearch: normalizedSearch,
-      };
-    }
-
-    return {
-      ok: true as const,
-      error: undefined,
-      params: paramsRes.data as TParams,
-      search: searchRes.data as TSearch,
-      rawParams: rawParamsSnapshot,
-      rawSearch: normalizedSearch,
-    };
+    return evaluateRouteTarget<TParams>(
+      "params",
+      props.config?.params,
+      rawParamsSnapshot,
+      { rawParams: rawParamsSnapshot, rawSearch: normalizedSearch },
+      props.config?.onError,
+    );
   });
 
-  const params = createMemo<TParams>((prev) => {
-    const state = validationState();
-    if (state.ok) {
-      return state.params;
-    }
-    return prev !== undefined ? prev : ({} as TParams);
+  const search = createRouteAccessorTuple<TSearch>(() => {
+    const rawParamsSnapshot: Record<string, string | undefined> = { ...rawParams };
+    const normalizedSearch = normalizeSearchParams(searchParams);
+    return evaluateRouteTarget<TSearch>(
+      "search",
+      props.config?.search,
+      normalizedSearch,
+      { rawParams: rawParamsSnapshot, rawSearch: normalizedSearch },
+      props.config?.onError,
+    );
   });
-
-  const search = createMemo<TSearch>((prev) => {
-    const state = validationState();
-    if (state.ok) {
-      return state.search;
-    }
-    return prev !== undefined ? prev : ({} as TSearch);
-  });
-
-  const error = createMemo<RouteValidationError | undefined>(() => validationState().error);
-  const rawParamsAccessor = createMemo<Record<string, string | undefined>>(
-    () => validationState().rawParams,
-  );
-  const rawSearchAccessor = createMemo<Record<string, unknown>>(() => validationState().rawSearch);
 
   const state = createMemo<TState | undefined>(() => {
     if (!props.config?.state) {
@@ -158,32 +105,11 @@ export function RouteValidationProvider<TParams, TSearch, TState, THash, TData>(
     search,
     state,
     hash,
-    error,
-    rawParams: rawParamsAccessor,
-    rawSearch: rawSearchAccessor,
   };
 
   return createComponent(RouteValidationContext, {
     value: contextValue,
     get children() {
-      const currentError = error();
-      if (currentError !== undefined && !props.config?.passThroughError) {
-        const ErrorComp =
-          props.config?.errorComponent ??
-          props.defaultErrorComponent ??
-          DefaultRouteErrorFallback;
-        return createComponent(ErrorComp, {
-          get error() {
-            return currentError;
-          },
-          get rawParams() {
-            return rawParamsAccessor();
-          },
-          get rawSearch() {
-            return rawSearchAccessor();
-          },
-        });
-      }
       return props.children;
     },
   });

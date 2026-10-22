@@ -54,7 +54,7 @@ import { createMiddleware } from "@skyjt/typed-routes-solid";
 export const apiMiddleware = createMiddleware(routes, {
   base: "/",
   onValidationError({ error, rawParams, rawSearch, isPage }) {
-    // Allow UI page requests to proceed to SSR so the route's `errorComponent` renders
+    // Allow UI page requests to proceed to SSR so components can render validation states via [data, error] tuples
     if (isPage) {
       return;
     }
@@ -98,6 +98,6 @@ $$\text{isPage} = (\text{route.page} === \text{true}) \land (\text{request.metho
 
 | Route Type | `route.page` | Request Method | `isPage` | Default Behavior on Validation Failure |
 | :--- | :--- | :--- | :--- | :--- |
-| **Pure API Route** (`src/routes/api/...`) | `false` | Any (`GET`, `POST`, `DELETE`, …) | `false` | Returns `400 Bad Request` JSON response (or custom `Response` returned by `onValidationError`). |
-| **UI Page Route** (`src/routes/(main)/...`) | `true` | `GET` or `HEAD` | `true` | If `onValidationError` returns `void`, sets `event.validationError = error` and calls `next()` so Solid SSR renders the route's `errorComponent`. |
+| **Pure API Route** (`src/routes/api/...`) | `false` | Any (`GET`, `POST`, `DELETE`, ï¿½) | `false` | Returns `400 Bad Request` JSON response (or custom `Response` returned by `onValidationError`). |
+| **UI Page Route** (`src/routes/(main)/...`) | `true` | `GET` or `HEAD` | `true` | If `onValidationError` returns `void`, sets `event.validationError = error` and calls `next()` so Solid SSR renders the page component with validation error tuples `[undefined, error]`. |
 | **Hybrid Route** (`page: true` + `export const POST`) | `true` | `POST`, `PUT`, `PATCH`, `DELETE`, `QUERY` | `false` | Treated as an API mutation (`isPage: false`); returns `400 Bad Request` JSON on invalid input. |

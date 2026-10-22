@@ -1,6 +1,6 @@
 {
   "name": "@skyjt/typed-routes-solid",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "SolidJS and @solidjs/router adapter for @skyjt/typed-routes",
   "type": "module",
   "files": [
@@ -40,7 +40,7 @@
     "@skyjt/typed-routes": "workspace:^"
   },
   "peerDependencies": {
-    "@skyjt/typed-routes": "^0.5.0",
+    "@skyjt/typed-routes": "^0.6.0",
     "@solidjs/router": ">=2.0.0-next.21",
     "@solidjs/web": ">=2.0.0-rc.6",
     "filesystem-routing": "^0.4.0",

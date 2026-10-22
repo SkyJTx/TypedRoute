@@ -38,7 +38,7 @@ export default function Navigation() {
 
 > **Good to know**:
 > - Always import the bound `<Link>` returned by `createRouter<typeof pageRoutes>(...)` in `src/router.ts` so `TManifest` is pre-bound to your project's `pageRoutes` tuple.
-> - Because `virtual:file-routes` splits its manifest into a leaf module (`virtual:file-routes-manifest:*`), you can safely import `<Link>` from `src/router.ts` inside `defineRoute({ errorComponent })` without causing circular SSR import errors.
+> - Because `virtual:file-routes` splits its manifest into a leaf module (`virtual:file-routes-manifest:*`), you can safely import `<Link>` from `src/router.ts` inside route definitions and components without causing circular SSR import errors.
 
 ---
 

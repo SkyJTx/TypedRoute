@@ -1,8 +1,15 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import solid from "@solidjs/vite-plugin";
 import { routes } from "@skyjt/typed-routes-solid/vite";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "~": fileURLToPath(new URL("./src", import.meta.url)),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   plugins: [
     solid({
       start: {

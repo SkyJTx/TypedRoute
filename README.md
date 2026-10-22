@@ -1,6 +1,6 @@
 # TypedRoute Monorepo
 
-> End-to-end compile-time typed routes, Universal Schema parameter validation, route error boundaries, URL path building, and full-stack API middleware powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> End-to-end compile-time typed routes, Universal Schema parameter validation, validation tuples ([data, error]), URL path building, and full-stack API middleware powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -10,14 +10,14 @@
 
 | Package | Version | Description |
 | :--- | :--- | :--- |
-| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.4.0` | Framework-agnostic routing core: schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), type inference, `route.handler()`, API middleware (`createMiddleware`), and Vite plugin. |
-| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.3.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter`, `interceptFileRoutes`, reactive `defineRoute` with `errorComponent` & non-nullable `useParams`/`useSearch`, `<Link>`, `useNavigate`, and Solid SSR Vite plugin. |
+| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.6.0` | Framework-agnostic routing core: schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), type inference, `route.handler()`, `RouteValidationTuple` (`[data, error]`), `evaluateRouteTarget`, API middleware (`createMiddleware`), and Vite plugin. |
+| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.5.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter`, `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), `<Link>`, `useNavigate`, and Solid SSR Vite plugin. |
 
 ---
 
 ## Documentation & API Reference
 
-Browse the full documentation and Next.js-style API Reference in [`./docs`](./docs/index.md):
+Browse the full documentation and API Reference in [`./docs`](./docs/index.md):
 
 - **Getting Started**
   - [Installation](./docs/01-getting-started/01-installation.md)
@@ -25,7 +25,7 @@ Browse the full documentation and Next.js-style API Reference in [`./docs`](./do
 - **Building Your Application: Routing**
   - [Defining Routes](./docs/02-routing/01-defining-routes.md)
   - [Linking and Navigating](./docs/02-routing/02-linking-and-navigating.md)
-  - [Error Handling (`errorComponent` & `useError`)](./docs/02-routing/03-error-handling.md)
+  - [Error Handling (`RouteValidationTuple` & `[data, error]`)](./docs/02-routing/03-error-handling.md)
   - [Route Handlers and Middleware (`route.handler` & `isPage`)](./docs/02-routing/04-route-handlers-and-middleware.md)
 - **API Reference**
   - [Components: `<Link>`](./docs/03-api-reference/01-components/link.md)
@@ -72,24 +72,34 @@ Browse the full documentation and Next.js-style API Reference in [`./docs`](./do
 4. **Define a Validated Page Route (`src/routes/(main)/users/[id].tsx`)**:
    ```tsx
    import * as v from "valibot";
+   import { Show } from "solid-js";
    import { defineRoute } from "@skyjt/typed-routes-solid";
-   import { Link } from "../../../router";
+   import { Link } from "~/router";
 
    export const route = defineRoute({
      params: v.object({ id: v.number() }),
      search: v.object({ tab: v.optional(v.string(), "overview") }),
-     errorComponent: (props) => (
-       <div role="alert">
-         <p>Invalid user ID "{props.rawParams.id}": {props.error.message}</p>
-         <Link to="/users/">Back to Directory</Link>
-       </div>
-     ),
    });
 
    export default function UserPage() {
-     const params = route.useParams();
-     const search = route.useSearch();
-     return <div>User #{params().id} � Tab: {search().tab}</div>;
+     const [params, paramsError] = route.useParams();
+     const [search] = route.useSearch();
+
+     return (
+       <Show
+         when={params()}
+         fallback={
+           <div role="alert">
+             <p>Invalid user ID "{paramsError()?.rawParams.id}": {paramsError()?.message}</p>
+             <Link to="/users/">Back to Directory</Link>
+           </div>
+         }
+       >
+         {(validParams) => (
+           <div>User #{validParams().id} — Tab: {search()?.tab}</div>
+         )}
+       </Show>
+     );
    }
    ```
 

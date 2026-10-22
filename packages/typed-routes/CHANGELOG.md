@@ -1,5 +1,15 @@
 # @skyjt/typed-routes
 
+## 0.6.0
+
+### Minor Changes
+
+- **`RouteValidationTuple<T>` (`[data, error]`) API**:
+  - Replaced throwing validation errors and component-level error boundary mechanics with the discriminated tuple pattern `RouteValidationTuple<T>` (`[data, error]`), where checking `if (error)` narrows `error` to `RouteValidationError` and `data` to `undefined`, while promoting `data` to `T` in the non-error branch.
+  - Exported `evaluateRouteTarget(target, schema, rawInput, context, onError?)` for validating route targets (`params`, `search`, `state`, `hash`), dispatching telemetry side-effects, and returning `RouteValidationTuple<T>`.
+  - Updated `RouteConfig.preload` signature to accept discriminated tuples: `preload({ params: [params, paramsErr], search: [search, searchErr], location })`.
+  - Retained `onError` in `defineRoute` strictly for telemetry, logging, and error-reporting side effects.
+
 ## 0.5.0
 
 ### Minor Changes

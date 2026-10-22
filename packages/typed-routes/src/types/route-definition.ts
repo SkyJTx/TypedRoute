@@ -118,6 +118,17 @@ export type TypedAPIHandler<
 > = (event: TypedAPIEvent<TParams, TSearch>) => TResult | Promise<TResult>;
 
 /**
+ * Discriminated tuple representing either validated route data or a RouteValidationError.
+ *
+ * Destructuring `const [data, error] = result` enables TypeScript control-flow type promotion:
+ * - Checking `if (error)` narrows `error` to `RouteValidationError` and `data` to `undefined`.
+ * - In the `else` or continuation branch, `data` is promoted to `T`.
+ */
+export type RouteValidationTuple<T> =
+  | [data: T, error: undefined]
+  | [data: undefined, error: RouteValidationError];
+
+/**
  * Route configuration defining schemas, preloading, and error handling.
  */
 export interface RouteConfig<
@@ -132,7 +143,11 @@ export interface RouteConfig<
   search?: TypeValidator<TSearch>;
   state?: TypeValidator<TState>;
   hash?: TypeValidator<THash>;
-  preload?: (args: { params: TParams; search: TSearch; location: TLocation }) => TData;
+  preload?: (args: {
+    params: RouteValidationTuple<TParams>;
+    search: RouteValidationTuple<TSearch>;
+    location: TLocation;
+  }) => TData;
   onError?: (args: {
     error: RouteValidationError;
     rawParams: Record<string, string | undefined>;

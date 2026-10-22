@@ -4,10 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import * as v from "valibot";
-import { validateData, isStandardSchema, isZodSchema } from "~/schema/validator-adapter";
+import {
+  validateData,
+  isStandardSchema,
+  isZodSchema,
+  evaluateRouteTarget,
+} from "~/schema/validator-adapter";
+import { RouteValidationError } from "~/types/route-definition";
 
 describe("Universal Validator Adapter", () => {
   it("detects Standard Schema and Zod schema type guards", () => {
@@ -96,5 +102,100 @@ describe("Universal Validator Adapter", () => {
     const result = validateData(undefined, raw);
     expect(result.success).toBe(true);
     expect(result.data).toBe(raw);
+  });
+
+  describe("evaluateRouteTarget", () => {
+    it("returns [coercedData, undefined] on success, does not call onError, and narrowing promotes data to T", () => {
+      const onError = vi.fn();
+      const schema = v.object({
+        id: v.number(),
+        active: v.boolean(),
+      });
+      const context = {
+        rawParams: { id: "42", active: "true" },
+        rawSearch: { tab: "overview" },
+      };
+
+      const tuple = evaluateRouteTarget<{ id: number; active: boolean }>(
+        "params",
+        schema,
+        { id: "42", active: "true" },
+        context,
+        onError,
+      );
+
+      const [data, error] = tuple;
+
+      expect(error).toBeUndefined();
+      expect(data).toEqual({ id: 42, active: true });
+      expect(onError).not.toHaveBeenCalled();
+
+      if (error) {
+        const _unreachable: undefined = data;
+        expect(_unreachable).toBeUndefined();
+      } else {
+        const id: number = data.id;
+        const active: boolean = data.active;
+        expect(id).toBe(42);
+        expect(active).toBe(true);
+      }
+    });
+
+    it("returns [undefined, RouteValidationError] on failure and calls onError with { error, rawParams, rawSearch }", () => {
+      const onError = vi.fn();
+      const schema = v.object({
+        id: v.number(),
+      });
+      const context = {
+        rawParams: { id: "invalid-id" },
+        rawSearch: { filter: "all" },
+      };
+
+      const tuple = evaluateRouteTarget<{ id: number }>(
+        "params",
+        schema,
+        { id: "invalid-id" },
+        context,
+        onError,
+      );
+
+      const [data, error] = tuple;
+
+      expect(data).toBeUndefined();
+      expect(error).toBeInstanceOf(RouteValidationError);
+      expect(error?.target).toBe("params");
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith({
+        error,
+        rawParams: context.rawParams,
+        rawSearch: context.rawSearch,
+      });
+
+      if (error) {
+        const target: "params" | "search" | "state" | "hash" = error.target;
+        expect(target).toBe("params");
+      } else {
+        const _unreachable: { id: number } = data;
+        expect(_unreachable).toBeUndefined();
+      }
+    });
+
+    it("returns [rawInput, undefined] for schema-less passthrough", () => {
+      const raw = { foo: "bar", count: 10 };
+      const context = {
+        rawParams: {},
+        rawSearch: {},
+      };
+
+      const [data, error] = evaluateRouteTarget<typeof raw>(
+        "params",
+        undefined,
+        raw,
+        context,
+      );
+
+      expect(error).toBeUndefined();
+      expect(data).toBe(raw);
+    });
   });
 });

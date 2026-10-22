@@ -11,8 +11,12 @@ import type {
   StandardSchemaV1,
   ZodLikeSchema,
   FunctionValidator,
-} from "../types/type-validator";
-import { coerceRecord } from "./coercion";
+} from "~/types/type-validator";
+import {
+  RouteValidationError,
+  type RouteValidationTuple,
+} from "~/types/route-definition";
+import { EMPTY_RECORD, coerceRecord } from "./coercion";
 
 /**
  * Monomorphic validation outcome structure.
@@ -230,4 +234,40 @@ export function validateData<T>(
   }
   const runValidator = compileValidator(validator);
   return runValidator(rawInput);
+}
+
+/**
+ * Validates a route target ("params" | "search" | "state" | "hash") and returns a discriminated
+ * [data, error] tuple, invoking `onError` when validation fails.
+ */
+export function evaluateRouteTarget<T>(
+  target: "params" | "search" | "state" | "hash",
+  schema: TypeValidator<T, unknown> | undefined,
+  rawInput: unknown,
+  context: {
+    rawParams: Record<string, string | undefined>;
+    rawSearch: Record<string, unknown>;
+  },
+  onError?: (args: {
+    error: RouteValidationError;
+    rawParams: Record<string, string | undefined>;
+    rawSearch: Record<string, unknown>;
+  }) => void,
+): RouteValidationTuple<T> {
+  if (!schema) {
+    return [(rawInput ?? EMPTY_RECORD) as T, undefined];
+  }
+  const res = validateData<T>(schema, rawInput);
+  if (res.success) {
+    return [res.data, undefined];
+  }
+  const error = new RouteValidationError(target, res.issues ?? [], context);
+  if (onError) {
+    onError({
+      error,
+      rawParams: context.rawParams,
+      rawSearch: context.rawSearch,
+    });
+  }
+  return [undefined, error];
 }

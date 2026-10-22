@@ -27,6 +27,7 @@ export type {
   MiddlewareRouteEntry,
   TypedAPIEvent,
   TypedAPIHandler,
+  RouteValidationTuple,
   NormalizePath,
   PathSegments,
   ExtractPathParams,
@@ -68,6 +69,7 @@ export {
   parseFastQueryString,
   compileValidator,
   validateData,
+  evaluateRouteTarget,
   isStandardSchema,
   isZodSchema,
   buildUrl,
@@ -90,15 +92,19 @@ export type {
 
 // SolidJS-specific reactive components, context, and router bindings
 export type {
-  RouteValidationErrorProps,
+  RouteAccessorTuple,
   SolidRouteConfig,
   RouteValidationContextValue,
   DefinedRouteObject,
   LinkProps,
 } from "./types/solid-route";
 
-export { RouteValidationProvider, useRouteValidationContext } from "./context/route-context";
-export { interceptFileRoutes, type InterceptRoutesOptions } from "./interceptor/interceptor";
+export {
+  RouteValidationProvider,
+  createRouteAccessorTuple,
+  useRouteValidationContext,
+} from "./context/route-context";
+export { interceptFileRoutes } from "./interceptor/interceptor";
 export { SolidDefinedRoute, defineRoute } from "./router/define-route";
 export { createRouter, type RouterConfig, type RouterPaths } from "./router/create-router";
 export { Link } from "./components/link";

@@ -1,6 +1,6 @@
 # Defining Routes
 
-Routes are defined by placing files inside `src/routes/` and optionally exporting `export const route = defineRoute(...)` to declare schemas, preloaders, and validation error components.
+Routes are defined by placing files inside `src/routes/` and optionally exporting `export const route = defineRoute(...)` to declare schemas, preloaders, and validation error telemetry.
 
 ---
 
@@ -11,6 +11,7 @@ Export a default SolidJS component from a `.tsx` file in `src/routes/`. To valid
 ```tsx
 // src/routes/(main)/users/[id].tsx
 import * as v from "valibot";
+import { Show } from "solid-js";
 import { defineRoute } from "@skyjt/typed-routes-solid";
 
 export const route = defineRoute({
@@ -23,21 +24,34 @@ export const route = defineRoute({
 });
 
 export default function UserProfilePage() {
-  const params = route.useParams();
-  const search = route.useSearch();
+  const [params, paramsError] = route.useParams();
+  const [search, searchError] = route.useSearch();
 
   return (
-    <section>
-      <h1>User #{params().id}</h1>
-      <p>Active Tab: {search().tab}</p>
-    </section>
+    <Show
+      when={params()}
+      fallback={
+        <div role="alert">
+          <h1>Invalid User ID</h1>
+          <p>{paramsError()?.message}</p>
+        </div>
+      }
+    >
+      {(validParams) => (
+        <section>
+          <h1>User #{validParams().id}</h1>
+          <p>Active Tab: {search()?.tab}</p>
+        </section>
+      )}
+    </Show>
   );
 }
 ```
 
 > **Good to know**:
-> - `route.useParams()` and `route.useSearch()` return non-nullable SolidJS `Accessor<T>` functions (`Accessor<{ id: number }>`, `Accessor<{ tab: "overview" | "activity" }>`).
-> - Because `RouteValidationProvider` intercepts invalid parameters before mounting `UserProfilePage`, `params().id` is guaranteed to be a validated `number` whenever `UserProfilePage` renders.
+> - `route.useParams()` and `route.useSearch()` return reactive SolidJS `RouteAccessorTuple<T>` accessors (`readonly [data: Accessor<T | undefined>, error: Accessor<RouteValidationError | undefined>]`), unpacked once at component setup following Solid's `createSignal` convention (`const [params, paramsError] = route.useParams()`).
+> - `params()` and `paramsError()` are independent fine-grained `createMemo` accessors. Passing `when={params()}` to Solid's `<Show>` promotes `validParams` to a non-nullable `Accessor<TParams>` (`Accessor<{ id: number }>`) with 100% fine-grained DOM updates and zero remounts on sibling navigation (`/users/1` -> `/users/2`).
+> - In effects or observers, `createEffect(() => params(), (validParams) => { if (!validParams) return; ... })` narrows `validParams` to `TParams`.
 > - String values from URLs (such as `"42"` or `"true"`) are automatically coerced to primitives (`42`, `true`) when validated against your schema.
 
 ---
@@ -49,7 +63,7 @@ A file named after a directory or route group (for example, `src/routes/(main).t
 ```tsx
 // src/routes/(main).tsx
 import type { RouteSectionProps } from "@skyjt/typed-routes-solid";
-import { Link } from "../router";
+import { Link } from "~/router";
 
 export default function MainLayout(props: RouteSectionProps) {
   return (

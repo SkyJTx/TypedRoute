@@ -62,7 +62,7 @@ import { createMiddleware } from "@skyjt/typed-routes";
 export const apiMiddleware = createMiddleware(routes, {
   base: "/",
   onValidationError({ error, rawParams, rawSearch, isPage }) {
-    // Allow UI page requests (isPage === true) to proceed to SSR errorComponent
+    // Allow UI page requests (isPage === true) to proceed to SSR page rendering
     if (isPage) {
       return;
     }

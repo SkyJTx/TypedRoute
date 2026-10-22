@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import * as v from "valibot";
+import { RouteValidationError, type RouteValidationTuple } from "@skyjt/typed-routes";
 import { interceptFileRoutes } from "~/interceptor/interceptor";
 import { defineRoute } from "~/router/define-route";
 
@@ -13,9 +14,19 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
   describe("Success Cases", () => {
     it("intercepts file route manifest and executes validated preload", async () => {
       const onErrorMock = vi.fn();
-      const preloadMock = vi.fn((args: { params: { id: number }; search: { tab?: string } }) => {
-        return { userId: args.params.id, tab: args.search.tab };
-      });
+      const preloadMock = vi.fn(
+        (args: {
+          params: RouteValidationTuple<{ id: number }>;
+          search: RouteValidationTuple<{ tab?: string }>;
+        }) => {
+          const [params, paramsError] = args.params;
+          const [search, searchError] = args.search;
+          if (paramsError || searchError) {
+            return null;
+          }
+          return { userId: params.id, tab: search.tab };
+        },
+      );
 
       const userRoute = defineRoute({
         params: v.object({
@@ -60,8 +71,8 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
 
       expect(preloadMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: { id: 42 },
-          search: { tab: "profile" },
+          params: [{ id: 42 }, undefined],
+          search: [{ tab: "profile" }, undefined],
         }),
       );
       expect(preloadResult).toEqual({ userId: 42, tab: "profile" });
@@ -91,7 +102,12 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
 
     it("lazily resolves $$route.require() when circular SSR imports are still evaluating at intercept time", async () => {
       let isEvaluated = false;
-      const preloadMock = vi.fn((args: { params: { id: number } }) => args.params.id);
+      const preloadMock = vi.fn(
+        (args: { params: RouteValidationTuple<{ id: number }> }) => {
+          const [params] = args.params;
+          return params?.id;
+        },
+      );
 
       const userRoute = defineRoute({
         params: v.object({ id: v.number() }),
@@ -131,7 +147,7 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
       });
       expect(res).toBe(77);
       expect(preloadMock).toHaveBeenCalledWith(
-        expect.objectContaining({ params: { id: 77 } }),
+        expect.objectContaining({ params: [{ id: 77 }, undefined] }),
       );
     });
   });
@@ -139,12 +155,13 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
   describe("Expected Failure & Validation Error Cases", () => {
     it("triggers onError callback with rawParams and rawSearch on invalid parameters during preload", async () => {
       const onErrorMock = vi.fn();
+      const preloadMock = vi.fn();
 
       const userRoute = defineRoute({
         params: v.object({
           id: v.number(),
         }),
-        preload: () => "ok",
+        preload: preloadMock,
         onError: onErrorMock,
       });
 
@@ -178,16 +195,24 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
       expect(callArg.error.target).toBe("params");
       expect(callArg.error.rawParams).toEqual({ id: "not-a-number" });
       expect(callArg.error.rawSearch).toEqual({ filter: "active" });
+
+      expect(preloadMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: [undefined, expect.any(RouteValidationError)],
+          search: [{ filter: "active" }, undefined],
+        }),
+      );
     });
 
     it("triggers onError callback on invalid search query during preload", async () => {
       const onErrorMock = vi.fn();
+      const preloadMock = vi.fn();
 
       const searchRoute = defineRoute({
         search: v.object({
           role: v.picklist(["admin", "operator"]),
         }),
-        preload: () => "ok",
+        preload: preloadMock,
         onError: onErrorMock,
       });
 
@@ -220,6 +245,13 @@ describe("Route Manifest Interceptor (interceptFileRoutes)", () => {
       const callArg = onErrorMock.mock.calls[0][0];
       expect(callArg.error.target).toBe("search");
       expect(callArg.error.rawSearch).toEqual({ role: "invalid_role" });
+
+      expect(preloadMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: [{}, undefined],
+          search: [undefined, expect.any(RouteValidationError)],
+        }),
+      );
     });
   });
 });

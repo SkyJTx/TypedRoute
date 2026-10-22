@@ -5,6 +5,7 @@ Route files inside `src/routes/` support a standardized set of named and default
 ```tsx
 // src/routes/(main)/users/[id].tsx
 import * as v from "valibot";
+import { Show } from "solid-js";
 import { defineRoute } from "@skyjt/typed-routes-solid";
 
 // 1. Route configuration & validation schema export
@@ -14,8 +15,15 @@ export const route = defineRoute({
 
 // 2. Default UI page component export
 export default function UserPage() {
-  const params = route.useParams();
-  return <h1>User #{params().id}</h1>;
+  const [params, paramsError] = route.useParams();
+  return (
+    <Show
+      when={params()}
+      fallback={<h1>Error: {paramsError()?.message}</h1>}
+    >
+      {(validParams) => <h1>User #{validParams().id}</h1>}
+    </Show>
+  );
 }
 ```
 
@@ -27,7 +35,7 @@ export default function UserPage() {
 
 | Export Name | Environment | Type | Description |
 | :--- | :--- | :--- | :--- |
-| `route` | Server & Client | `DefinedRouteObject` / `DefinedRouteConfig` | Created via `defineRoute(...)`. Declares `params`, `search`, `state`, `hash` schemas, `preload`, `onError`, and `errorComponent`. Picked eagerly into `$$route` in `virtual:file-routes`. |
+| `route` | Server & Client | `DefinedRouteObject` / `DefinedRouteConfig` | Created via `defineRoute(...)`. Declares `params`, `search`, `state`, `hash` schemas, `preload`, and `onError`. Picked eagerly into `$$route` in `virtual:file-routes`. |
 | `default` | Server (SSR) & Client | `Component<RouteSectionProps>` | The UI page or layout component rendered by `@solidjs/router`. Code-split into `$component` in `virtual:file-routes`. |
 | `GET` | Server Only | `TypedAPIHandler<TParams, TSearch>` | Handles HTTP `GET` (and fallback `HEAD`) requests. Returning `undefined` on a hybrid page route (`page: true`) declines API handling and renders the UI component instead. |
 | `POST` | Server Only | `TypedAPIHandler<TParams, TSearch>` | Handles HTTP `POST` requests. Must return a `Response`, `string`, or JSON-serializable value. |

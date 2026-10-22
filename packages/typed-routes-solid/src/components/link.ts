@@ -7,7 +7,7 @@
 import { Dynamic, type JSX } from "@solidjs/web";
 import { createComponent } from "solid-js";
 import { buildUrl, type ExtractRoutePaths } from "@skyjt/typed-routes";
-import type { LinkProps } from "../types/solid-route";
+import type { LinkProps } from "~/types/solid-route";
 
 /**
  * Link component deriving target routes and parameters from the route manifest.

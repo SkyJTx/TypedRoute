@@ -42,7 +42,7 @@ export default defineConfig({
 | `moduleId` | `string` | `"virtual:file-routes"` | Virtual module specifier used to import the route manifest. |
 
 > **Good to know**:
-> - **Circular SSR Import Protection (`virtual:file-routes-manifest:*`)**: When a route file defines `export const route = defineRoute({ errorComponent })` and imports `<Link>` from `src/router.ts` (which in turn imports `{ pageRoutes } from "virtual:file-routes"`), a static import cycle exists:
+> - **Circular SSR Import Protection (`virtual:file-routes-manifest:*`)**: When a route file defines `export const route = defineRoute(...)` and imports `<Link>` from `src/router.ts` (which in turn imports `{ pageRoutes } from "virtual:file-routes"`), a static import cycle exists:
 >   `virtual:file-routes` -> `route-file.tsx?pick=route` -> `src/router.ts` -> `virtual:file-routes`.
 >   To guarantee `routes` and `pageRoutes` are never in the Temporal Dead Zone (TDZ) when `src/router.ts` evaluates, `skyjt:typed-routes:normalize-virtual-routes` splits `virtual:file-routes` into a zero-dependency leaf manifest module (`virtual:file-routes-manifest:<env>`) and a route-data binder (`Object.assign(__routeData, ...)`). Because the leaf manifest has zero static imports, ECMAScript DFS post-order evaluation and Vite's `ssrTransform` always initialize `routes` and `pageRoutes` first before evaluating any route module.
 > - **SolidJS SSR Deduplication**: `@skyjt/typed-routes-solid/vite` automatically adds `resolve.dedupe: ["solid-js", "@solidjs/web"]` and `ssr.noExternal: true` so reactive context symbols (`RouteValidationContext` and `solid.RequestContext`) are shared across SSR module boundaries.
@@ -53,5 +53,5 @@ export default defineConfig({
 
 | Version | Changes |
 | :--- | :--- |
-| `v0.4.0` / `v0.3.0` | Added `virtual:file-routes-manifest:<env>` leaf module splitting to eliminate circular SSR TDZ errors when `errorComponent` imports `<Link>`. |
+| `v0.4.0` / `v0.3.0` | Added `virtual:file-routes-manifest:<env>` leaf module splitting to eliminate circular SSR TDZ errors when route files import `<Link>`. |
 | `v0.1.0` | Initial release of `@skyjt/typed-routes/vite` and `@skyjt/typed-routes-solid/vite`. |

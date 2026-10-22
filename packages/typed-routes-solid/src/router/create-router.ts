@@ -15,8 +15,8 @@ import {
   type RouteParamsFor,
   type RouteSearchFor,
 } from "@skyjt/typed-routes";
-import { Link } from "../components/link";
-import { useNavigate } from "../hooks/use-navigate";
+import { Link } from "~/components/link";
+import { useNavigate } from "~/hooks/use-navigate";
 
 export interface RouterConfig<R extends readonly RouteDefinition[] = RouteDefinition[]>
   extends SolidRouterConfig<R> {}

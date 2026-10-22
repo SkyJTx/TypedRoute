@@ -1,5 +1,5 @@
 import type { RouteSectionProps } from "@skyjt/typed-routes-solid";
-import { Link } from "../router";
+import { Link } from "~/router";
 
 export default function MainLayout(props: RouteSectionProps) {
   return (
