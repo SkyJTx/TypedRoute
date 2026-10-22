@@ -20,6 +20,8 @@
     "@types/node": "^22.20.3",
     "filesystem-routing": "^0.4.0",
     "mitata": "^1.0.34",
-    "typescript": "^5.9.3"
+    "path-to-regexp": "^8.4.2",
+    "typescript": "^5.9.3",
+    "ufo": "^1.6.4"
   }
 }

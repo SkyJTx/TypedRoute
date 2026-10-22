@@ -1,4 +1,4 @@
-/**
+﻿/**
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -7,8 +7,10 @@
 import process from "node:process";
 import { current, v011, v040 } from "./targets";
 import { fixtures } from "./fixtures";
+import { isolates } from "./isolates";
+import * as ufo from "ufo";
 
-function forceGc(): void {
+export function forceGc(): void {
   const bunGc = (globalThis as unknown as { Bun?: { gc?: (sync: boolean) => void } }).Bun?.gc;
   if (typeof bunGc === "function") {
     bunGc(true);
@@ -20,7 +22,10 @@ function forceGc(): void {
   }
 }
 
-function measureHeapDelta(fn: () => void, iterations: number = 100_000): { deltaKb: number; bytesPerOp: number } {
+export function measureHeapDelta(
+  fn: () => void,
+  iterations: number = 100_000,
+): { deltaKb: number; bytesPerOp: number } {
   forceGc();
   const memBefore = process.memoryUsage().heapUsed;
   for (let i = 0; i < iterations; i++) {
@@ -69,7 +74,7 @@ function measureRetainedRouteFootprint(
 
 export function runMemoryAudit(iterations: number = 100_000) {
   console.log("\n=========================================================================");
-  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs v0.5.0 (${(iterations / 1000).toFixed(0)}k Ops)`);
+  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs v0.5.0 vs Isolates (${(iterations / 1000).toFixed(0)}k Ops)`);
   console.log("=========================================================================");
 
   console.log("  [0] Retained Route Instance Footprint (defineRoute):");
@@ -117,10 +122,18 @@ export function runMemoryAudit(iterations: number = 100_000) {
         hash: fixtures.complex.hash,
       });
     }, iterations);
+    const mIsolate = measureHeapDelta(() => {
+      isolates.buildUrlStaticFast(fixtures.complex.pattern, {
+        params: fixtures.complex.params,
+        search: fixtures.complex.search,
+        hash: fixtures.complex.hash,
+      });
+    }, iterations);
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
     console.log(`      Current v0.5.0            : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
+    console.log(`      Candidate Isolate         : ${String(mIsolate.deltaKb).padStart(9)} KB (${mIsolate.bytesPerOp} bytes/op)`);
   }
 
   console.log("\n  [2] Search Parameter Normalization:");
@@ -134,10 +147,18 @@ export function runMemoryAudit(iterations: number = 100_000) {
     const mCur = measureHeapDelta(() => {
       current.normalizeSearchParams(fixtures.urls.query);
     }, iterations);
+    const mUfo = measureHeapDelta(() => {
+      ufo.parseQuery(fixtures.urls.query);
+    }, iterations);
+    const mIsolate = measureHeapDelta(() => {
+      isolates.normalizeSearchParamsNullProto(fixtures.urls.query);
+    }, iterations);
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
     console.log(`      Current v0.5.0            : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
+    console.log(`      Ecosystem ufo.parseQuery  : ${String(mUfo.deltaKb).padStart(9)} KB (${mUfo.bytesPerOp} bytes/op)`);
+    console.log(`      Candidate Isolate         : ${String(mIsolate.deltaKb).padStart(9)} KB (${mIsolate.bytesPerOp} bytes/op)`);
   }
 
   console.log("=========================================================================\n");
