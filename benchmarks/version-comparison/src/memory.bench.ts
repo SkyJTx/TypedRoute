@@ -1,4 +1,4 @@
-﻿/**
+/**
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -7,8 +7,6 @@
 import process from "node:process";
 import { current, v011, v040 } from "./targets";
 import { fixtures } from "./fixtures";
-import { isolates } from "./isolates";
-import * as ufo from "ufo";
 
 export function forceGc(): void {
   const bunGc = (globalThis as unknown as { Bun?: { gc?: (sync: boolean) => void } }).Bun?.gc;
@@ -46,7 +44,7 @@ function measureRetainedRouteFootprint(
   const sharedConfig = {
     params: (raw: Record<string, unknown>) => ({ id: Number(raw.id) }),
   };
-  const bucket = Array.from<unknown>({length: count});
+  const bucket = Array.from<unknown>({ length: count });
 
   for (let i = 0; i < 64; i++) {
     defineRouteFn(sharedConfig);
@@ -74,7 +72,7 @@ function measureRetainedRouteFootprint(
 
 export function runMemoryAudit(iterations: number = 100_000) {
   console.log("\n=========================================================================");
-  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs current vs Isolates (${(iterations / 1000).toFixed(0)}k Ops)`);
+  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs current (${(iterations / 1000).toFixed(0)}k Ops)`);
   console.log("=========================================================================");
 
   console.log("  [0] Retained Route Instance Footprint (defineRoute):");
@@ -95,11 +93,28 @@ export function runMemoryAudit(iterations: number = 100_000) {
       `      Published v0.4.0          : ${String(f040.bytesPerRoute).padStart(9)} B/route (${f040.totalBytesFor10Routes} B for 10 routes)`,
     );
     console.log(
-      `      Current                   : ${String(fCur.bytesPerRoute).padStart(9)} B/route (${fCur.totalBytesFor10Routes} B for 10 routes — < 1 KB)`,
+      `      Current                   : ${String(fCur.bytesPerRoute).padStart(9)} B/route (${fCur.totalBytesFor10Routes} B for 10 routes)`,
     );
   }
 
-  console.log("\n  [1] URL Construction (Complex Route + Arrays + Hash):");
+  console.log("\n  [1] Static URL Construction:");
+  {
+    const m011 = measureHeapDelta(() => {
+      v011.buildUrl(fixtures.static.pattern);
+    }, iterations);
+    const m040 = measureHeapDelta(() => {
+      v040.buildUrl(fixtures.static.pattern);
+    }, iterations);
+    const mCur = measureHeapDelta(() => {
+      current.buildUrl(fixtures.static.pattern);
+    }, iterations);
+
+    console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
+    console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
+    console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
+  }
+
+  console.log("\n  [2] Complex URL Construction (Multi-Param + Arrays + Hash):");
   {
     const m011 = measureHeapDelta(() => {
       v011.buildUrl(fixtures.complex.pattern, {
@@ -122,21 +137,31 @@ export function runMemoryAudit(iterations: number = 100_000) {
         hash: fixtures.complex.hash,
       });
     }, iterations);
-    const mIsolate = measureHeapDelta(() => {
-      isolates.buildUrlStaticFast(fixtures.complex.pattern, {
-        params: fixtures.complex.params,
-        search: fixtures.complex.search,
-        hash: fixtures.complex.hash,
-      });
-    }, iterations);
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
     console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
-    console.log(`      Candidate Isolate         : ${String(mIsolate.deltaKb).padStart(9)} KB (${mIsolate.bytesPerOp} bytes/op)`);
   }
 
-  console.log("\n  [2] Search Parameter Normalization:");
+  console.log("\n  [3] URL Parsing & Pathname Extraction:");
+  {
+    const m011 = measureHeapDelta(() => {
+      const u = new URL(fixtures.urls.full);
+      return u.pathname;
+    }, iterations);
+    const m040 = measureHeapDelta(() => {
+      v040.parseFastUrl(fixtures.urls.full);
+    }, iterations);
+    const mCur = measureHeapDelta(() => {
+      current.parseFastUrl(fixtures.urls.full);
+    }, iterations);
+
+    console.log(`      Published v0.1.1 (new URL): ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
+    console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
+    console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
+  }
+
+  console.log("\n  [4] Search Parameter Normalization:");
   {
     const m011 = measureHeapDelta(() => {
       v011.normalizeSearchParams(fixtures.urls.query);
@@ -147,18 +172,10 @@ export function runMemoryAudit(iterations: number = 100_000) {
     const mCur = measureHeapDelta(() => {
       current.normalizeSearchParams(fixtures.urls.query);
     }, iterations);
-    const mUfo = measureHeapDelta(() => {
-      ufo.parseQuery(fixtures.urls.query);
-    }, iterations);
-    const mIsolate = measureHeapDelta(() => {
-      isolates.normalizeSearchParamsNullProto(fixtures.urls.query);
-    }, iterations);
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
     console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
-    console.log(`      Ecosystem ufo.parseQuery  : ${String(mUfo.deltaKb).padStart(9)} KB (${mUfo.bytesPerOp} bytes/op)`);
-    console.log(`      Candidate Isolate         : ${String(mIsolate.deltaKb).padStart(9)} KB (${mIsolate.bytesPerOp} bytes/op)`);
   }
 
   console.log("=========================================================================\n");
