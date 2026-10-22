@@ -5,14 +5,19 @@
  */
 
 /**
- * Detects whether a string represents a boolean value.
+ * Shared frozen empty record singleton used for zero-allocation read-only fallbacks.
+ */
+export const EMPTY_RECORD: Readonly<Record<string, never>> = Object.freeze({});
+
+/**
+ * Detects whether a string represents a boolean literal ("true" or "false").
  */
 function isBooleanString(value: string): boolean {
   return value === "true" || value === "false";
 }
 
 /**
- * Detects whether a string represents a valid numeric value without allocating whitespace trimmed strings.
+ * Detects whether a string represents a valid finite number without allocating trimmed substrings.
  */
 function isNumericString(value: string): boolean {
   const len = value.length;
@@ -20,7 +25,11 @@ function isNumericString(value: string): boolean {
     return false;
   }
   let i = 0;
-  while (i < len && (value.charCodeAt(i) === 32 || value.charCodeAt(i) === 9)) {
+  while (i < len) {
+    const code = value.charCodeAt(i);
+    if (code !== 32 && code !== 9) {
+      break;
+    }
     i++;
   }
   if (i === len) {
@@ -31,7 +40,7 @@ function isNumericString(value: string): boolean {
 }
 
 /**
- * Coerces a single string token into its primitive equivalent when applicable.
+ * Coerces a single string token or array of tokens into its primitive equivalent when applicable.
  */
 export function coercePrimitive(value: unknown): unknown {
   if (typeof value === "string") {
@@ -44,7 +53,12 @@ export function coercePrimitive(value: unknown): unknown {
     return value;
   }
   if (Array.isArray(value)) {
-    return value.map(coercePrimitive);
+    const len = value.length;
+    const out: unknown[] = [];
+    for (let i = 0; i < len; i++) {
+      out.push(coercePrimitive(value[i]));
+    }
+    return out;
   }
   return value;
 }
@@ -61,38 +75,54 @@ export function coerceRecord(record: Record<string, unknown>): Record<string, un
 }
 
 /**
- * Fast search query string parser that avoids native URLSearchParams host allocations.
+ * Appends a decoded query parameter into the target record, promoting duplicate keys into arrays.
+ */
+function appendParam(result: Record<string, unknown>, key: string, value: string): void {
+  const existing = result[key];
+  if (existing !== undefined && Object.prototype.hasOwnProperty.call(result, key)) {
+    if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      result[key] = [existing, value];
+    }
+  } else {
+    result[key] = value;
+  }
+}
+
+/**
+ * Fast ASCII search query string parser that avoids native URLSearchParams host allocations.
  */
 export function parseFastQueryString(searchStr: string): Record<string, unknown> {
   if (!searchStr) {
     return {};
   }
-  const clean = searchStr.charCodeAt(0) === 63 ? searchStr.slice(1) : searchStr;
-  if (!clean) {
+  const startOffset = searchStr.charCodeAt(0) === 63 ? 1 : 0;
+  const len = searchStr.length;
+  if (startOffset >= len) {
     return {};
   }
+
   const result: Record<string, unknown> = {};
-  const len = clean.length;
-  let start = 0;
+  let start = startOffset;
 
   while (start < len) {
-    let eqIdx = clean.indexOf("=", start);
-    let ampIdx = clean.indexOf("&", start);
-
+    let ampIdx = searchStr.indexOf("&", start);
     if (ampIdx === -1) {
       ampIdx = len;
     }
 
+    const eqIdx = searchStr.indexOf("=", start);
     if (eqIdx === -1 || eqIdx > ampIdx) {
-      const rawKey = clean.slice(start, ampIdx);
-      if (rawKey) {
+      if (ampIdx > start) {
+        const rawKey = searchStr.slice(start, ampIdx);
         const key = rawKey.indexOf("%") === -1 ? rawKey : decodeURIComponent(rawKey);
         appendParam(result, key, "");
       }
     } else {
-      const rawKey = clean.slice(start, eqIdx);
-      const rawVal = clean.slice(eqIdx + 1, ampIdx);
-      if (rawKey) {
+      if (eqIdx > start) {
+        const rawKey = searchStr.slice(start, eqIdx);
+        const rawVal = searchStr.slice(eqIdx + 1, ampIdx);
         const key = rawKey.indexOf("%") === -1 ? rawKey : decodeURIComponent(rawKey);
         const val =
           rawVal.indexOf("%") === -1 && rawVal.indexOf("+") === -1
@@ -106,19 +136,6 @@ export function parseFastQueryString(searchStr: string): Record<string, unknown>
   }
 
   return result;
-}
-
-function appendParam(result: Record<string, unknown>, key: string, value: string): void {
-  if (key in result) {
-    const existing = result[key];
-    if (Array.isArray(existing)) {
-      existing.push(value);
-    } else {
-      result[key] = [existing, value];
-    }
-  } else {
-    result[key] = value;
-  }
 }
 
 /**

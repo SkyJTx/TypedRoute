@@ -7,11 +7,30 @@
 import { describe, it, expect } from "vitest";
 import { createRoot, createSignal, createMemo, type Accessor } from "solid-js";
 import * as v from "valibot";
-import { validateData, RouteValidationError } from "@skyjt/typed-routes";
-import { defineRoute } from "~/router/define-route";
+import { validateData, RouteValidationError, inspectRoute } from "@skyjt/typed-routes";
+import { SolidDefinedRoute, defineRoute } from "~/router/define-route";
 
 describe("Fine-Grained Reactive Unwrapping & Route Definition", () => {
   describe("Success Cases", () => {
+    it("shares all hook and handler methods on SolidDefinedRoute.prototype with a single in-object slot", () => {
+      const routeA = defineRoute({
+        params: v.object({ id: v.number() }),
+      });
+      const routeB = defineRoute({
+        search: v.object({ tab: v.string() }),
+      });
+
+      expect(routeA).toBeInstanceOf(SolidDefinedRoute);
+      expect(routeB).toBeInstanceOf(SolidDefinedRoute);
+      expect(routeA.useParams).toBe(routeB.useParams);
+      expect(routeA.useSearch).toBe(routeB.useSearch);
+      expect(routeA.useError).toBe(routeB.useError);
+      expect(routeA.useLocation).toBe(routeB.useLocation);
+      expect(routeA.handler).toBe(routeB.handler);
+      expect(Object.keys(routeA)).toEqual(["config"]);
+      expect(inspectRoute(routeA).paramsValidator).toBe("StandardSchema(valibot)");
+    });
+
     it("updates params accessor reactively without remounting or state teardown", async () => {
       let setRawParams!: (val: Record<string, string>) => void;
       let paramsAccessor!: Accessor<{ id: number }>;

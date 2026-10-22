@@ -41,19 +41,44 @@ export type {
   MiddlewareOptions,
   MiddlewareInput,
   MiddlewareNext,
+  CompiledValidator,
+  CompiledPathBuilder,
+  PathBuilderDebugInfo,
+  RouteDebugSummary,
+  ParsedUrl,
 } from "@skyjt/typed-routes";
 
 export {
+  EMPTY_RECORD,
+  CUSTOM_INSPECT_SYMBOL,
+  ROUTE_FLAG_NONE,
+  ROUTE_FLAG_IS_PAGE,
+  ROUTE_FLAG_VALIDATION_ONLY,
+  ROUTE_FLAG_CONFIG_RESOLVED,
+  ROUTE_FLAG_HAS_PARAMS_SCHEMA,
+  ROUTE_FLAG_HAS_SEARCH_SCHEMA,
   SchemaValidationError,
   RouteValidationError,
+  ValidationOutcome,
+  PathSegment,
+  RouteNodeMeta,
   coercePrimitive,
   coerceRecord,
   normalizeSearchParams,
+  parseFastQueryString,
+  compileValidator,
   validateData,
   isStandardSchema,
   isZodSchema,
   buildUrl,
+  compilePathBuilder,
+  inspectPathBuilder,
+  serializeFastQuery,
   createMiddleware,
+  parseFastUrl,
+  describeValidator,
+  formatRouteFlags,
+  inspectRoute,
 } from "@skyjt/typed-routes";
 
 // Re-exported SolidJS router types so userland never needs direct @solidjs/router imports
@@ -74,7 +99,7 @@ export type {
 
 export { RouteValidationProvider, useRouteValidationContext } from "./context/route-context";
 export { interceptFileRoutes, type InterceptRoutesOptions } from "./interceptor/interceptor";
-export { defineRoute } from "./router/define-route";
+export { SolidDefinedRoute, defineRoute } from "./router/define-route";
 export { createRouter, type RouterConfig, type RouterPaths } from "./router/create-router";
 export { Link } from "./components/link";
 export { useNavigate } from "./hooks/use-navigate";

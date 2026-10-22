@@ -1,5 +1,18 @@
 # @skyjt/typed-routes-solid
 
+## 0.4.0
+
+### Minor Changes
+
+- **Prototype-Shared `SolidDefinedRoute` Memory Layout**:
+  - Replaced the 6-property object literal and 5 per-route closures (`useParams`, `useSearch`, `useError`, `useLocation`, `handler`) in `defineRoute` with the monomorphic prototype-shared `SolidDefinedRoute` class holding a single in-object `config` slot.
+  - Replaced anonymous component and preload wrappers in `interceptFileRoutes` with named functions (`BoundRouteValidationComponent`, `preloadValidatedRoute`, `resolveLazyRouteComponent`) for clear SSR and DevTools stack traces.
+  - Re-exported core diagnostic and inspection utilities (`inspectRoute`, `inspectPathBuilder`, `formatRouteFlags`, `describeValidator`, `compileValidator`, `ValidationOutcome`, `PathSegment`, `ParsedUrl`, `RouteNodeMeta`, `EMPTY_RECORD`).
+
+### Patch Changes
+
+- Updated dependencies
+  - @skyjt/typed-routes@0.5.0
 ## 0.3.0
 
 ### Minor Changes

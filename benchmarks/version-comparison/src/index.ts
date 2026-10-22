@@ -9,7 +9,7 @@ import { registerPerformanceBenchmarks } from "./performance.bench";
 import { runMemoryAudit } from "./memory.bench";
 
 console.log("=========================================================================");
-console.log("  TOPIC: VERSION COMPARISON (PUBLISHED v0.1.1 vs CURRENT OPTIMIZED)");
+console.log("  TOPIC: 3-WAY VERSION COMPARISON (v0.1.1 vs v0.4.0 vs CURRENT v0.5.0)");
 console.log("=========================================================================\n");
 
 registerPerformanceBenchmarks();

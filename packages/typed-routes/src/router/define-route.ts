@@ -12,6 +12,57 @@ import type {
   RouteValidationError,
   TypedAPIHandler,
 } from "../types/route-definition";
+import { CUSTOM_INSPECT_SYMBOL, inspectRoute, type RouteDebugSummary } from "../debug/inspect";
+
+/**
+ * Monomorphic prototype-shared route definition class.
+ *
+ * Memory Layout:
+ * - Holds a single in-object slot (`config`), occupying 16 bytes in V8 (pointer-compressed)
+ *   and 24 bytes in JavaScriptCore (Bun).
+ * - Attaches `handler`, `toString`, and `[CUSTOM_INSPECT_SYMBOL]` to `DefinedRoute.prototype`
+ *   so zero closure objects (`JSFunction` + `Context`) are allocated per route definition.
+ */
+export class DefinedRoute<
+  TParams = unknown,
+  TSearch = unknown,
+  TState = unknown,
+  THash = unknown,
+  TData = unknown,
+> implements DefinedRouteConfig<TParams, TSearch, TState, THash, TData, RouteLocation<TState>> {
+  public readonly config: RouteConfig<
+    TParams,
+    TSearch,
+    TState,
+    THash,
+    TData,
+    RouteLocation<TState>
+  >;
+
+  public constructor(
+    config: RouteConfig<TParams, TSearch, TState, THash, TData, RouteLocation<TState>>,
+  ) {
+    this.config = config;
+  }
+
+  public handler<TResult = unknown>(
+    fn: TypedAPIHandler<TParams, TSearch, TResult>,
+  ): TypedAPIHandler<TParams, TSearch, TResult> {
+    return fn;
+  }
+
+  public toString(): string {
+    const summary = inspectRoute(this.config);
+    return `DefinedRoute(params=${summary.paramsValidator}, search=${summary.searchValidator})`;
+  }
+
+  public [CUSTOM_INSPECT_SYMBOL](): RouteDebugSummary & { readonly [Symbol.toStringTag]: string } {
+    return {
+      [Symbol.toStringTag]: "DefinedRoute",
+      ...inspectRoute(this.config),
+    };
+  }
+}
 
 /**
  * Defines framework-agnostic route parameter, search, state, and hash validation schemas.
@@ -53,12 +104,5 @@ export function defineRoute<
     RouteLocation<TState>
   >;
 
-  return {
-    config: routeConfig,
-    handler<TResult = unknown>(
-      fn: TypedAPIHandler<TParams, TSearch, TResult>,
-    ): TypedAPIHandler<TParams, TSearch, TResult> {
-      return fn;
-    },
-  };
+  return new DefinedRoute<TParams, TSearch, TState, THash, D>(routeConfig);
 }

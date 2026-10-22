@@ -8,6 +8,7 @@ import { lazy, createComponent, type Component } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { RouteDefinition, RouteSectionProps, Location } from "@solidjs/router";
 import {
+  EMPTY_RECORD,
   RouteValidationError,
   validateData,
   normalizeSearchParams,
@@ -22,6 +23,9 @@ export interface InterceptRoutesOptions {
   defaultErrorComponent?: Component<RouteValidationErrorProps>;
 }
 
+const EMPTY_SOLID_CONFIG: SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> =
+  Object.freeze({});
+
 /**
  * Intercepts manifest route definitions to bind schema validation and preloading for @solidjs/router.
  */
@@ -31,7 +35,9 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
 ): RouteDefinition[] {
   const componentCache = new Map<string, Component<RouteSectionProps>>();
 
-  const resolveComponent = (ref: FileRouteLazyRef | FileRouteEagerRef): Component<RouteSectionProps> => {
+  function resolveLazyRouteComponent(
+    ref: FileRouteLazyRef | FileRouteEagerRef,
+  ): Component<RouteSectionProps> {
     if ("require" in ref) {
       return ref.require().default as Component<RouteSectionProps>;
     }
@@ -49,11 +55,12 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
       componentCache.set(moduleUrl, cached);
     }
     return cached;
-  };
+  }
 
-  const transformEntry = (entry: FileRouteEntry): RouteDefinition => {
+  function interceptRouteEntry(entry: FileRouteEntry): RouteDefinition {
     let cachedConfig: SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> | undefined;
-    const getConfig = (): SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> => {
+
+    function getRouteConfig(): SolidRouteConfig<unknown, unknown, unknown, unknown, unknown> {
       if (cachedConfig) {
         return cachedConfig;
       }
@@ -72,18 +79,18 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
       } catch {
         // Module may still be evaluating during circular SSR import; resolve lazily on render/preload
       }
-      return {};
-    };
+      return EMPTY_SOLID_CONFIG;
+    }
 
-    const eagerConfig = getConfig();
+    const eagerConfig = getRouteConfig();
 
-    let component: Component<RouteSectionProps> | undefined = undefined;
+    let component: Component<RouteSectionProps> | undefined;
     if (entry.$component) {
-      const RawComp = resolveComponent(entry.$component);
-      component = (props: RouteSectionProps): JSX.Element => {
+      const RawComp = resolveLazyRouteComponent(entry.$component);
+      component = function BoundRouteValidationComponent(props: RouteSectionProps): JSX.Element {
         return createComponent(RouteValidationProvider, {
           get config() {
-            return getConfig();
+            return getRouteConfig();
           },
           defaultErrorComponent: options?.defaultErrorComponent,
           get children() {
@@ -93,20 +100,29 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
       };
       if ("preload" in RawComp && typeof (RawComp as { preload?: unknown }).preload === "function") {
         const rawPreload = (RawComp as { preload: () => unknown }).preload;
-        (component as unknown as { preload: () => unknown }).preload = () => rawPreload();
+        (component as unknown as { preload: () => unknown }).preload =
+          function preloadLazyRouteComponent() {
+            return rawPreload();
+          };
       }
     }
 
-    let preload: ((args: Record<string, unknown>) => unknown) | undefined = undefined;
+    let preload: ((args: Record<string, unknown>) => unknown) | undefined;
     if (eagerConfig.preload || entry.$$route) {
-      preload = (args: Record<string, unknown>): unknown => {
-        const currentConfig = getConfig();
+      preload = function preloadValidatedRoute(args: Record<string, unknown>): unknown {
+        const currentConfig = getRouteConfig();
         if (!currentConfig.preload || typeof currentConfig.preload !== "function") {
           return undefined;
         }
-        const rawParams = (args.params as Record<string, string | undefined>) ?? {};
-        const locationObj = (args.location as { query?: Record<string, string | string[] | undefined> }) ?? {};
-        const rawSearch = normalizeSearchParams(locationObj.query ?? {});
+        const rawParams =
+          (args.params as Record<string, string | undefined>) ??
+          (EMPTY_RECORD as Record<string, string | undefined>);
+        const locationObj = args.location as
+          | { query?: Record<string, string | string[] | undefined> }
+          | undefined;
+        const rawSearch = locationObj?.query
+          ? normalizeSearchParams(locationObj.query)
+          : (EMPTY_RECORD as Record<string, unknown>);
 
         const paramsRes = validateData(currentConfig.params, rawParams);
         if (!paramsRes.success && currentConfig.onError) {
@@ -145,10 +161,12 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
       path: entry.path,
       component,
       preload: preload as RouteDefinition["preload"],
-      info: { ...eagerConfig.info, filesystem: true },
-      children: entry.children ? (entry.children as FileRouteEntry[]).map(transformEntry) : undefined,
+      info: eagerConfig.info ? { ...eagerConfig.info, filesystem: true } : { filesystem: true },
+      children: entry.children
+        ? (entry.children as FileRouteEntry[]).map(interceptRouteEntry)
+        : undefined,
     } as RouteDefinition;
-  };
+  }
 
-  return (entries as unknown as FileRouteEntry[]).map(transformEntry);
+  return (entries as unknown as FileRouteEntry[]).map(interceptRouteEntry);
 }

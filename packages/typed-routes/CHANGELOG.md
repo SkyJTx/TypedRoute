@@ -1,5 +1,21 @@
 # @skyjt/typed-routes
 
+## 0.5.0
+
+### Minor Changes
+
+- **V8 / JavaScriptCore / SpiderMonkey Memory Layout Optimizations**:
+  - Replaced per-route object literal and closure allocations in `defineRoute` with the monomorphic prototype-shared `DefinedRoute` class (`16 bytes` in V8 pointer-compressed / `24–34 bytes` in JavaScriptCore, achieving sub-kilobyte route footprints).
+  - Replaced polymorphic path segment unions with the monomorphic `PathSegment` class (`kind`, `text`, `optional`) and moved slash collapsing to compile time (`tokenizePattern`), achieving **3.07x faster** single-param URL building (`13.33x` vs `v0.1.1`) and **2.40x faster** complex URL building (`4.17x` vs `v0.1.1`) compared to `v0.4.0`.
+  - Added an RFC 3986 unreserved ASCII fast path (`isSimpleUriToken` / `encodeFastComponent`) to skip C++ `encodeURIComponent` calls for common alphanumeric keys and numeric IDs.
+  - Added monomorphic `ValidationOutcome<T>` and WeakMap-cached `compileValidator<T>` in `validator-adapter.ts` so validator classification (`StandardSchemaV1`, `Zod`, `Function`) runs once per schema lifetime.
+- **Modular Middleware Architecture & Sucrose Lazy Evaluation**:
+  - Decomposed `src/middleware/` into single-responsibility modules: `url-scanner.ts` (`ParsedUrl`, `parseFastUrl`), `route-meta.ts` (`RouteNodeMeta` with 31-bit `Smi` bitflags), `route-matcher.ts` (`toRadixPath`, `toApiHandlerRef`, `buildMatcherAndMetadata`), and `middleware.ts` (`typedRoutesMiddleware`).
+  - Fixed per-request handler extraction overhead in `toApiHandlerRef` by memoizing `extractHandlersFromModule` once per route lifetime and binding exported handlers directly without wrapper closures.
+  - Applied Sucrose-style lazy query parsing in `createMiddleware` to skip `parseFastQueryString` when `searchStr` is empty or unused on validation-only UI pages, reusing frozen `EMPTY_RECORD` singletons.
+- **Human-Readable Diagnostics & Custom Inspection**:
+  - Exported `inspectRoute`, `inspectPathBuilder`, `formatRouteFlags`, `describeValidator`, and `CUSTOM_INSPECT_SYMBOL` (`Symbol.for("nodejs.util.inspect.custom")`) for human-readable runtime debugging and clean stack traces.
+
 ## 0.4.0
 
 ### Minor Changes

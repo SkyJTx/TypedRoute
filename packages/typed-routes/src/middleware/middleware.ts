@@ -4,255 +4,43 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import {
-  createAPIMatcher,
-  stripPathBase,
-  type FileRouteHandlers,
-  type APIHandler,
-  type APIHandlerRef,
-  type APIEvent,
-} from "filesystem-routing/api";
-import type {
-  RouteConfig,
-  MiddlewareHandlerRef,
-  MiddlewareRouteEntry,
-} from "../types/route-definition";
+import { createAPIMatcher, type APIEvent } from "filesystem-routing/api";
+import type { MiddlewareRouteEntry, RouteConfig } from "../types/route-definition";
 import { RouteValidationError } from "../types/route-definition";
+import type { ValidationIssue } from "../types/type-validator";
 import { validateData } from "../schema/validator-adapter";
-import { parseFastQueryString } from "../schema/coercion";
+import { EMPTY_RECORD, parseFastQueryString } from "../schema/coercion";
+import {
+  ROUTE_FLAG_IS_PAGE,
+  ROUTE_FLAG_VALIDATION_ONLY,
+} from "../debug/inspect";
+import { parseFastUrl, type ParsedUrl } from "./url-scanner";
+import { RouteNodeMeta, resolveRouteConfig } from "./route-meta";
+import {
+  buildMatcherAndMetadata,
+  httpHandlerKeys,
+  toApiHandlerRef,
+  toRadixPath,
+  type HttpMethod,
+  type HttpMethodKey,
+} from "./route-matcher";
 
-export type HttpMethod =
-  | "HEAD"
-  | "GET"
-  | "POST"
-  | "PUT"
-  | "PATCH"
-  | "DELETE"
-  | "QUERY"
-  | "OPTIONS";
-
-const httpHandlerKeys = [
-  "$HEAD",
-  "$GET",
-  "$POST",
-  "$PUT",
-  "$PATCH",
-  "$DELETE",
-  "$QUERY",
-  "$OPTIONS",
-] as const;
-
-export type HttpMethodKey = (typeof httpHandlerKeys)[number];
+export {
+  type ParsedUrl,
+  parseFastUrl,
+  RouteNodeMeta,
+  resolveRouteConfig,
+  buildMatcherAndMetadata,
+  httpHandlerKeys,
+  toApiHandlerRef,
+  toRadixPath,
+  type HttpMethod,
+  type HttpMethodKey,
+};
 
 export type MiddlewareInput = Request | { request: Request; [key: string]: unknown };
 
 export type MiddlewareNext = (request?: Request) => Response | Promise<Response>;
-
-/**
- * Runtime guard narrowing an unknown value to a non-null key-value record.
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-/**
- * Extracts the underlying `Request` instance from either a raw `Request` or a framework `RequestEvent`.
- */
-function extractRequest(input: MiddlewareInput): Request {
-  if (input instanceof Request) {
-    return input;
-  }
-  return input.request;
-}
-
-/**
- * Normalizes a filesystem-routing path template into the radix3 pattern format.
- */
-function toRadixPath(rawPath: string): string {
-  return rawPath
-    .replace(/\([^)/]+\)/g, "")
-    .replace(/\/+/g, "/")
-    .replace(/\*([^/]*)/g, (_, m: string) => `**:${m}`)
-    .split("/")
-    .map((s) => (s.startsWith(":") || s.startsWith("*") ? s : encodeURIComponent(s)))
-    .join("/");
-}
-
-/**
- * Internal metadata associated with each radix-indexed `APIHandlerRef`.
- *
- * Tracking `isPage` and `isValidationOnlyPage` explicitly per handler reference
- * decouples `createMiddleware` from `filesystem-routing/api`'s internal
- * `route.page === true && route.$component !== undefined` heuristic and avoids
- * mutating `$component` or executing synthetic handler functions.
- */
-interface MatchedRouteMetadata {
-  /** Original route entry from `virtual:file-routes`. */
-  readonly route: MiddlewareRouteEntry;
-  /**
-   * True when this handler slot represents a UI page navigation (`route.page === true`
-   * on a `GET` or `HEAD` request) rather than a standalone API endpoint.
-   */
-  readonly isPage: boolean;
-  /**
-   * True when this handler slot is a synthetic validation-only slot created for a
-   * schema-validated UI page (`page: true` with `$$route` and no explicit `$GET` handler).
-   */
-  readonly isValidationOnlyPage: boolean;
-  /** Cached `RouteConfig` extracted from `route.$$route`. */
-  config?: RouteConfig;
-}
-
-/**
- * Extracts `RouteConfig` from a route entry's `$$route.require()` reference if available.
- */
-function extractRouteConfig(route: MiddlewareRouteEntry): RouteConfig | undefined {
-  if (!route.$$route) {
-    return undefined;
-  }
-  try {
-    const mod = route.$$route.require();
-    if (!isRecord(mod)) {
-      return undefined;
-    }
-    const routeExport = mod.route;
-    if (isRecord(routeExport)) {
-      if ("config" in routeExport && isRecord(routeExport.config)) {
-        return routeExport.config as RouteConfig;
-      }
-      return routeExport as RouteConfig;
-    }
-  } catch {
-    // Module may still be evaluating during circular SSR import; resolved lazily on request.
-  }
-  return undefined;
-}
-
-/**
- * Resolves and caches `RouteConfig` for a matched route metadata entry.
- */
-function resolveRouteConfig(meta: MatchedRouteMetadata): RouteConfig | undefined {
-  if (meta.config) {
-    return meta.config;
-  }
-  const resolved = extractRouteConfig(meta.route);
-  if (resolved) {
-    meta.config = resolved;
-  }
-  return resolved;
-}
-
-/**
- * Extracts callable HTTP method handlers (`GET`, `POST`, etc.) from a loaded route module object.
- */
-function extractHandlersFromModule(mod: object): Record<string, APIHandler> {
-  const handlers: Record<string, APIHandler> = {};
-  for (const [exportName, exportValue] of Object.entries(mod)) {
-    if (typeof exportValue === "function") {
-      handlers[exportName] = (event: APIEvent) =>
-        (exportValue as (ev: APIEvent) => unknown)(event);
-    }
-  }
-  return handlers;
-}
-
-/**
- * Adapts a `MiddlewareHandlerRef` into a `filesystem-routing/api` `APIHandlerRef`.
- */
-function toApiHandlerRef(ref: MiddlewareHandlerRef): APIHandlerRef {
-  if ("require" in ref) {
-    return {
-      require: () => extractHandlersFromModule(ref.require()),
-    };
-  }
-  return {
-    import: async () => extractHandlersFromModule(await ref.import()),
-  };
-}
-
-/**
- * Builds normalized `FileRouteHandlers` for `createAPIMatcher` and populates the
- * `handlerMetadata` lookup table mapping each `APIHandlerRef` to its `MatchedRouteMetadata`.
- */
-function buildMatcherAndMetadata(routes: readonly MiddlewareRouteEntry[]): {
-  matcherRoutes: readonly FileRouteHandlers[];
-  handlerMetadata: WeakMap<APIHandlerRef, MatchedRouteMetadata>;
-} {
-  const handlerMetadata = new WeakMap<APIHandlerRef, MatchedRouteMetadata>();
-  const seenRadixPaths = new Set<string>();
-
-  for (const route of routes) {
-    const hasAnyHttp = Boolean(
-      route.$HEAD ||
-        route.$GET ||
-        route.$POST ||
-        route.$PUT ||
-        route.$PATCH ||
-        route.$DELETE ||
-        route.$QUERY ||
-        route.$OPTIONS,
-    );
-    if (hasAnyHttp) {
-      seenRadixPaths.add(toRadixPath(route.path));
-    }
-  }
-
-  const matcherRoutes: FileRouteHandlers[] = routes.map((route) => {
-    const eagerConfig = extractRouteConfig(route);
-    const entry: FileRouteHandlers = {
-      path: route.path,
-      page: route.page,
-      $component: route.$component,
-    };
-
-    for (const key of httpHandlerKeys) {
-      const rawRef = route[key];
-      if (rawRef) {
-        const apiRef = toApiHandlerRef(rawRef);
-        entry[key] = apiRef;
-        handlerMetadata.set(apiRef, {
-          route,
-          isPage: route.page === true && (key === "$GET" || key === "$HEAD"),
-          isValidationOnlyPage: false,
-          config: eagerConfig,
-        });
-      }
-    }
-
-    const hasStandardHttp = Boolean(
-      route.$HEAD || route.$GET || route.$POST || route.$PUT || route.$PATCH || route.$DELETE,
-    );
-    const hasAdditionalHttp = Boolean(route.$QUERY || route.$OPTIONS);
-
-    // `createAPIMatcher` only indexes routes in radix3 when at least one of the 6 standard
-    // HTTP keys is defined. For `$QUERY`/`$OPTIONS`-only routes, attach an unregistered
-    // `$HEAD` placeholder so radix3 indexes the path while `handlerMetadata` ignores `HEAD`.
-    if (!hasStandardHttp && hasAdditionalHttp) {
-      entry.$HEAD = { require: () => ({}) };
-    }
-
-    // For schema-validated UI page routes (`page: true` with `$$route` and no HTTP handlers),
-    // register a validation-only `$GET` slot so `GET`/`HEAD` page requests run schema validation.
-    if (!hasStandardHttp && !hasAdditionalHttp && route.page === true && route.$$route) {
-      const radixPath = toRadixPath(route.path);
-      if (radixPath && !seenRadixPaths.has(radixPath) && !/:[^/]*\?/g.test(radixPath)) {
-        seenRadixPaths.add(radixPath);
-        const pageValidationRef: APIHandlerRef = { require: () => ({}) };
-        entry.$GET = pageValidationRef;
-        handlerMetadata.set(pageValidationRef, {
-          route,
-          isPage: true,
-          isValidationOnlyPage: true,
-          config: eagerConfig,
-        });
-      }
-    }
-
-    return entry;
-  });
-
-  return { matcherRoutes, handlerMetadata };
-}
 
 /**
  * Options for request middleware.
@@ -283,11 +71,20 @@ export interface MiddlewareOptions {
 const RequestContext = Symbol.for("solid.RequestContext");
 
 function getScopedEvent(): APIEvent {
-  const store = (globalThis as Record<symbol, { getStore?(): APIEvent } | undefined>)[RequestContext]?.getStore?.();
+  const store = (
+    globalThis as Record<symbol, { getStore?(): APIEvent } | undefined>
+  )[RequestContext]?.getStore?.();
   if (!store) {
     return { request: new Request("http://localhost/") };
   }
   return store;
+}
+
+function extractRequest(input: MiddlewareInput): Request {
+  if (input instanceof Request) {
+    return input;
+  }
+  return input.request;
 }
 
 function resolveRequestEvent(
@@ -316,35 +113,58 @@ function toResponse(result: unknown): Response {
 }
 
 /**
- * Fast ASCII URL scanner that extracts pathname and query string without C++ host allocations.
+ * Orchestrates error callbacks (`config.onError`, `options.onValidationError`) and builds
+ * the appropriate fallback or 400 Bad Request response when schema validation fails.
  */
-export function parseFastUrl(urlStr: string, base: string = "/"): { pathname: string; searchStr: string } {
-  const protoEnd = urlStr.indexOf("://");
-  const hostStart = protoEnd === -1 ? 0 : protoEnd + 3;
-  const pathStart = urlStr.indexOf("/", hostStart);
+async function handleValidationFailure(
+  target: "params" | "search",
+  issues: ReadonlyArray<ValidationIssue>,
+  rawParams: Record<string, string | undefined>,
+  rawSearch: Record<string, unknown>,
+  config: RouteConfig,
+  options: MiddlewareOptions,
+  eventOrRequest: MiddlewareInput,
+  request: Request,
+  getEvent: () => APIEvent,
+  isPage: boolean,
+  next: MiddlewareNext,
+): Promise<Response> {
+  const error = new RouteValidationError(target, issues, {
+    rawParams,
+    rawSearch,
+  });
 
-  if (pathStart === -1) {
-    const qIdx = urlStr.indexOf("?", hostStart);
-    if (qIdx === -1) {
-      return { pathname: stripPathBase("/", base), searchStr: "" };
+  if (config.onError) {
+    config.onError({ error, rawParams, rawSearch });
+  }
+
+  if (options.onValidationError) {
+    const customResponse = await options.onValidationError({
+      error,
+      rawParams,
+      rawSearch,
+      request,
+      isPage,
+    });
+    if (customResponse instanceof Response) {
+      return customResponse;
     }
-    const hIdx = urlStr.indexOf("#", qIdx + 1);
-    const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
-    return { pathname: stripPathBase("/", base), searchStr };
   }
 
-  const qIdx = urlStr.indexOf("?", pathStart);
-  if (qIdx === -1) {
-    const hIdx = urlStr.indexOf("#", pathStart);
-    const rawPath = hIdx === -1 ? urlStr.slice(pathStart) : urlStr.slice(pathStart, hIdx);
-    return { pathname: stripPathBase(rawPath, base), searchStr: "" };
+  if (isPage) {
+    const event = resolveRequestEvent(eventOrRequest, request, getEvent);
+    event.validationError = error;
+    return next();
   }
 
-  const rawPath = urlStr.slice(pathStart, qIdx);
-  const hIdx = urlStr.indexOf("#", qIdx + 1);
-  const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
-
-  return { pathname: stripPathBase(rawPath, base), searchStr };
+  return Response.json(
+    {
+      error: "Validation Failed",
+      target,
+      issues,
+    },
+    { status: 400 },
+  );
 }
 
 /**
@@ -357,14 +177,16 @@ export function createMiddleware(
   const { matcherRoutes, handlerMetadata } = buildMatcherAndMetadata(routes);
   const match = createAPIMatcher(matcherRoutes);
   const getEvent = options.getEvent ?? getScopedEvent;
+  const basePath = options.base ?? "/";
 
-  return async (
+  return async function typedRoutesMiddleware(
     eventOrRequest: MiddlewareInput,
     next: MiddlewareNext,
-  ): Promise<Response> => {
+  ): Promise<Response> {
     const request = extractRequest(eventOrRequest);
-    const { pathname, searchStr } = parseFastUrl(request.url, options.base ?? "/");
-    const matched = match(pathname, request.method);
+    const method = request.method;
+    const parsedUrl = parseFastUrl(request.url, basePath);
+    const matched = match(parsedUrl.pathname, method);
 
     if (!matched) {
       return next();
@@ -375,90 +197,77 @@ export function createMiddleware(
       return next();
     }
 
-    const isPage = meta.isPage && (request.method === "GET" || request.method === "HEAD");
     const config = resolveRouteConfig(meta);
-    const rawParams: Record<string, string | undefined> = matched.params ?? {};
-    const rawSearch: Record<string, unknown> = searchStr ? parseFastQueryString(searchStr) : {};
+    const flags = meta.flags;
+    const isValidationOnlyPage = (flags & ROUTE_FLAG_VALIDATION_ONLY) !== 0;
+
+    // Sucrose Fast-Path: validation-only page route without active schemas requires zero allocations
+    if (isValidationOnlyPage && !config?.params && !config?.search) {
+      return next();
+    }
+
+    const isPage =
+      (flags & ROUTE_FLAG_IS_PAGE) !== 0 && (method === "GET" || method === "HEAD");
+    const rawParams: Record<string, string | undefined> =
+      matched.params ?? (EMPTY_RECORD as Record<string, string | undefined>);
+
+    const searchStr = parsedUrl.searchStr;
+    let rawSearch: Record<string, unknown> | undefined;
+    const getRawSearch = (): Record<string, unknown> => {
+      if (rawSearch === undefined) {
+        rawSearch = searchStr
+          ? parseFastQueryString(searchStr)
+          : (EMPTY_RECORD as Record<string, unknown>);
+      }
+      return rawSearch;
+    };
 
     let validatedParams: unknown = rawParams;
-    let validatedSearch: unknown = rawSearch;
 
     if (config?.params) {
       const paramsResult = validateData(config.params, rawParams);
       if (!paramsResult.success) {
-        const error = new RouteValidationError("params", paramsResult.issues ?? [], {
+        return handleValidationFailure(
+          "params",
+          paramsResult.issues ?? [],
           rawParams,
-          rawSearch,
-        });
-        if (config.onError) {
-          config.onError({ error, rawParams, rawSearch });
-        }
-        if (options.onValidationError) {
-          const customResponse = await options.onValidationError({
-            error,
-            rawParams,
-            rawSearch,
-            request,
-            isPage,
-          });
-          if (customResponse instanceof Response) {
-            return customResponse;
-          }
-        }
-        if (isPage) {
-          const event = resolveRequestEvent(eventOrRequest, request, getEvent);
-          event.validationError = error;
-          return next();
-        }
-        return Response.json(
-          {
-            error: "Validation Failed",
-            target: "params",
-            issues: paramsResult.issues ?? [],
-          },
-          { status: 400 },
+          getRawSearch(),
+          config,
+          options,
+          eventOrRequest,
+          request,
+          getEvent,
+          isPage,
+          next,
         );
       }
       validatedParams = paramsResult.data;
     }
 
+    let validatedSearch: unknown;
     if (config?.search) {
-      const searchResult = validateData(config.search, rawSearch);
+      const currentRawSearch = getRawSearch();
+      const searchResult = validateData(config.search, currentRawSearch);
       if (!searchResult.success) {
-        const error = new RouteValidationError("search", searchResult.issues ?? [], {
+        return handleValidationFailure(
+          "search",
+          searchResult.issues ?? [],
           rawParams,
-          rawSearch,
-        });
-        if (config.onError) {
-          config.onError({ error, rawParams, rawSearch });
-        }
-        if (options.onValidationError) {
-          const customResponse = await options.onValidationError({
-            error,
-            rawParams,
-            rawSearch,
-            request,
-            isPage,
-          });
-          if (customResponse instanceof Response) {
-            return customResponse;
-          }
-        }
-        if (isPage) {
-          const event = resolveRequestEvent(eventOrRequest, request, getEvent);
-          event.validationError = error;
-          return next();
-        }
-        return Response.json(
-          {
-            error: "Validation Failed",
-            target: "search",
-            issues: searchResult.issues ?? [],
-          },
-          { status: 400 },
+          currentRawSearch,
+          config,
+          options,
+          eventOrRequest,
+          request,
+          getEvent,
+          isPage,
+          next,
         );
       }
       validatedSearch = searchResult.data;
+    } else if (!isValidationOnlyPage) {
+      validatedSearch = getRawSearch();
+    } else {
+      validatedSearch = searchStr ? getRawSearch() : EMPTY_RECORD;
     }
 
     const event = resolveRequestEvent(eventOrRequest, request, getEvent);
@@ -466,13 +275,15 @@ export function createMiddleware(
     event.params = validatedParams as Record<string, string>;
     event.search = validatedSearch;
 
-    // Schema-validated UI page routes without explicit HTTP handlers proceed directly to SSR.
-    if (meta.isValidationOnlyPage) {
+    if (isValidationOnlyPage) {
       return next();
     }
 
-    const mod = "require" in matched.handler ? matched.handler.require() : await matched.handler.import();
-    const handlerFn = request.method === "HEAD" ? mod.HEAD || mod.GET : mod[request.method];
+    const mod =
+      "require" in matched.handler
+        ? matched.handler.require()
+        : await matched.handler.import();
+    const handlerFn = method === "HEAD" ? mod.HEAD || mod.GET : mod[method];
 
     if (typeof handlerFn !== "function") {
       return next();
@@ -484,8 +295,10 @@ export function createMiddleware(
       return toResponse(result);
     }
 
-    if (request.method !== "GET") {
-      throw new Error(`API handler for ${request.method} "${request.url}" did not return a response.`);
+    if (method !== "GET") {
+      throw new Error(
+        `API handler for ${method} "${request.url}" did not return a response.`,
+      );
     }
 
     if (!isPage) {

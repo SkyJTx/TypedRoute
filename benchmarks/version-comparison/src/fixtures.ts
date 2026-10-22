@@ -30,10 +30,15 @@ export const fixtures = {
   },
 };
 
-export function createMockRoutes(defineRouteFn: any) {
+export function createMockRoutes(
+  defineRouteFn: (cfg: {
+    params: (raw: Record<string, unknown>) => { id: number };
+    search: (raw: Record<string, unknown>) => Record<string, unknown>;
+  }) => unknown,
+) {
   const testRoute = defineRouteFn({
-    params: (raw: any) => ({ id: Number(raw.id) }),
-    search: (raw: any) => raw,
+    params: (raw: Record<string, unknown>) => ({ id: Number(raw.id) }),
+    search: (raw: Record<string, unknown>) => raw,
   });
 
   return [

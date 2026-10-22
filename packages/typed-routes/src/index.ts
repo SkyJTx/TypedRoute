@@ -46,6 +46,7 @@ export type {
 } from "./types/route-inference";
 
 export {
+  EMPTY_RECORD,
   coercePrimitive,
   coerceRecord,
   normalizeSearchParams,
@@ -53,20 +54,30 @@ export {
 } from "./schema/coercion";
 
 export {
+  ValidationOutcome,
+  compileValidator,
   validateData,
   isStandardSchema,
   isZodSchema,
+  type CompiledValidator,
 } from "./schema/validator-adapter";
 
-export { defineRoute } from "./router/define-route";
+export { DefinedRoute, defineRoute } from "./router/define-route";
 export {
+  SEGMENT_STATIC,
+  SEGMENT_PARAM,
+  PathSegment,
   buildUrl,
   compilePathBuilder,
+  inspectPathBuilder,
   serializeFastQuery,
   type CompiledPathBuilder,
+  type PathBuilderDebugInfo,
 } from "./router/path-builder";
 
 export {
+  type ParsedUrl,
+  RouteNodeMeta,
   createMiddleware,
   parseFastUrl,
   type HttpMethod,
@@ -75,3 +86,17 @@ export {
   type MiddlewareInput,
   type MiddlewareNext,
 } from "./middleware/middleware";
+
+export {
+  CUSTOM_INSPECT_SYMBOL,
+  ROUTE_FLAG_NONE,
+  ROUTE_FLAG_IS_PAGE,
+  ROUTE_FLAG_VALIDATION_ONLY,
+  ROUTE_FLAG_CONFIG_RESOLVED,
+  ROUTE_FLAG_HAS_PARAMS_SCHEMA,
+  ROUTE_FLAG_HAS_SEARCH_SCHEMA,
+  describeValidator,
+  formatRouteFlags,
+  inspectRoute,
+  type RouteDebugSummary,
+} from "./debug/inspect";

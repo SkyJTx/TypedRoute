@@ -5,6 +5,7 @@
  */
 
 import * as current from "@skyjt/typed-routes";
-import * as published from "@skyjt/typed-routes-v0.1.1";
+import * as v011 from "@skyjt/typed-routes-v0.1.1";
+import * as v040 from "@skyjt/typed-routes-v0.4.0";
 
-export { current, published };
+export { current, v011, v040, v011 as published };
