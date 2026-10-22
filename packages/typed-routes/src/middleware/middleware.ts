@@ -8,11 +8,12 @@ import { createAPIMatcher, type APIEvent } from "filesystem-routing/api";
 import type { MiddlewareRouteEntry, RouteConfig } from "~/types/route-definition";
 import { RouteValidationError } from "~/types/route-definition";
 import type { ValidationIssue } from "~/types/type-validator";
-import { validateData } from "~/schema/validator-adapter";
 import { EMPTY_RECORD, parseFastQueryString } from "~/schema/coercion";
 import {
   ROUTE_FLAG_IS_PAGE,
   ROUTE_FLAG_VALIDATION_ONLY,
+  ROUTE_FLAG_HAS_PARAMS_SCHEMA,
+  ROUTE_FLAG_HAS_SEARCH_SCHEMA,
 } from "~/debug/inspect";
 import { parseFastUrl, type ParsedUrl } from "./url-scanner";
 import { RouteNodeMeta, resolveRouteConfig } from "./route-meta";
@@ -70,12 +71,12 @@ export interface MiddlewareOptions {
 
 const RequestContext = Symbol.for("solid.RequestContext");
 
-function getScopedEvent(): APIEvent {
+function getScopedEvent(request?: Request): APIEvent {
   const store = (
     globalThis as Record<symbol, { getStore?(): APIEvent } | undefined>
   )[RequestContext]?.getStore?.();
   if (!store) {
-    return { request: new Request("http://localhost/") };
+    return { request: request ?? new Request("http://localhost/") };
   }
   return store;
 }
@@ -90,13 +91,13 @@ function extractRequest(input: MiddlewareInput): Request {
 function resolveRequestEvent(
   eventOrRequest: MiddlewareInput,
   request: Request,
-  getEvent: () => APIEvent,
+  getEvent: (req?: Request) => APIEvent,
 ): APIEvent {
   if (!(eventOrRequest instanceof Request)) {
     return eventOrRequest;
   }
   try {
-    return getEvent();
+    return getEvent(request);
   } catch {
     return { request };
   }
@@ -121,11 +122,11 @@ async function handleValidationFailure(
   issues: ReadonlyArray<ValidationIssue>,
   rawParams: Record<string, string | undefined>,
   rawSearch: Record<string, unknown>,
-  config: RouteConfig,
+  config: RouteConfig | undefined,
   options: MiddlewareOptions,
   eventOrRequest: MiddlewareInput,
   request: Request,
-  getEvent: () => APIEvent,
+  getEvent: (req?: Request) => APIEvent,
   isPage: boolean,
   next: MiddlewareNext,
 ): Promise<Response> {
@@ -134,7 +135,7 @@ async function handleValidationFailure(
     rawSearch,
   });
 
-  if (config.onError) {
+  if (config?.onError) {
     config.onError({ error, rawParams, rawSearch });
   }
 
@@ -201,8 +202,11 @@ export function createMiddleware(
     const flags = meta.flags;
     const isValidationOnlyPage = (flags & ROUTE_FLAG_VALIDATION_ONLY) !== 0;
 
-    // Sucrose Fast-Path: validation-only page route without active schemas requires zero allocations
-    if (isValidationOnlyPage && !config?.params && !config?.search) {
+    const hasParamsSchema = (flags & ROUTE_FLAG_HAS_PARAMS_SCHEMA) !== 0;
+    const hasSearchSchema = (flags & ROUTE_FLAG_HAS_SEARCH_SCHEMA) !== 0;
+
+    // Validation-only page route without active schemas requires zero allocations
+    if (isValidationOnlyPage && !hasParamsSchema && !hasSearchSchema) {
       return next();
     }
 
@@ -213,25 +217,18 @@ export function createMiddleware(
 
     const searchStr = parsedUrl.searchStr;
     let rawSearch: Record<string, unknown> | undefined;
-    const getRawSearch = (): Record<string, unknown> => {
-      if (rawSearch === undefined) {
-        rawSearch = searchStr
-          ? parseFastQueryString(searchStr)
-          : (EMPTY_RECORD as Record<string, unknown>);
-      }
-      return rawSearch;
-    };
 
     let validatedParams: unknown = rawParams;
 
-    if (config?.params) {
-      const paramsResult = validateData(config.params, rawParams);
+    if (hasParamsSchema && meta.compiledParamsValidator) {
+      const paramsResult = meta.compiledParamsValidator(rawParams);
       if (!paramsResult.success) {
+        rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
         return handleValidationFailure(
           "params",
           paramsResult.issues ?? [],
           rawParams,
-          getRawSearch(),
+          rawSearch,
           config,
           options,
           eventOrRequest,
@@ -245,15 +242,15 @@ export function createMiddleware(
     }
 
     let validatedSearch: unknown;
-    if (config?.search) {
-      const currentRawSearch = getRawSearch();
-      const searchResult = validateData(config.search, currentRawSearch);
+    if (hasSearchSchema && meta.compiledSearchValidator) {
+      rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+      const searchResult = meta.compiledSearchValidator(rawSearch);
       if (!searchResult.success) {
         return handleValidationFailure(
           "search",
           searchResult.issues ?? [],
           rawParams,
-          currentRawSearch,
+          rawSearch,
           config,
           options,
           eventOrRequest,
@@ -265,9 +262,12 @@ export function createMiddleware(
       }
       validatedSearch = searchResult.data;
     } else if (!isValidationOnlyPage) {
-      validatedSearch = getRawSearch();
+      rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+      validatedSearch = rawSearch;
     } else {
-      validatedSearch = searchStr ? getRawSearch() : EMPTY_RECORD;
+      validatedSearch = searchStr
+        ? (rawSearch = rawSearch ?? parseFastQueryString(searchStr))
+        : EMPTY_RECORD;
     }
 
     const event = resolveRequestEvent(eventOrRequest, request, getEvent);

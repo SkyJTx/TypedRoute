@@ -5,6 +5,8 @@
  */
 
 import type { RouteConfig, MiddlewareRouteEntry } from "~/types/route-definition";
+import { compileValidator, type CompiledValidator } from "~/schema/validator-adapter";
+import type { TypeValidator } from "~/types/type-validator";
 import {
   CUSTOM_INSPECT_SYMBOL,
   ROUTE_FLAG_CONFIG_RESOLVED,
@@ -34,6 +36,8 @@ export class RouteNodeMeta {
   public readonly route: MiddlewareRouteEntry;
   public flags: number;
   public config: RouteConfig | undefined;
+  public compiledParamsValidator: CompiledValidator | undefined;
+  public compiledSearchValidator: CompiledValidator | undefined;
 
   public constructor(
     route: MiddlewareRouteEntry,
@@ -41,18 +45,24 @@ export class RouteNodeMeta {
     config: InspectableRouteConfig | undefined,
   ) {
     let computedFlags = baseFlags;
+    let compiledParams: CompiledValidator | undefined;
+    let compiledSearch: CompiledValidator | undefined;
     if (config !== undefined) {
       computedFlags |= ROUTE_FLAG_CONFIG_RESOLVED;
-      if (config.params !== undefined) {
+      if (config.params) {
         computedFlags |= ROUTE_FLAG_HAS_PARAMS_SCHEMA;
+        compiledParams = compileValidator(config.params as TypeValidator<unknown>);
       }
-      if (config.search !== undefined) {
+      if (config.search) {
         computedFlags |= ROUTE_FLAG_HAS_SEARCH_SCHEMA;
+        compiledSearch = compileValidator(config.search as TypeValidator<unknown>);
       }
     }
     this.route = route;
     this.flags = computedFlags;
     this.config = config as RouteConfig | undefined;
+    this.compiledParamsValidator = compiledParams;
+    this.compiledSearchValidator = compiledSearch;
   }
 
   public [CUSTOM_INSPECT_SYMBOL](): Record<string, unknown> {
@@ -107,9 +117,11 @@ export function resolveRouteConfig(meta: RouteNodeMeta): RouteConfig | undefined
     let nextFlags = meta.flags | ROUTE_FLAG_CONFIG_RESOLVED;
     if (resolved.params !== undefined) {
       nextFlags |= ROUTE_FLAG_HAS_PARAMS_SCHEMA;
+      meta.compiledParamsValidator = compileValidator(resolved.params);
     }
     if (resolved.search !== undefined) {
       nextFlags |= ROUTE_FLAG_HAS_SEARCH_SCHEMA;
+      meta.compiledSearchValidator = compileValidator(resolved.search);
     }
     meta.flags = nextFlags;
   }

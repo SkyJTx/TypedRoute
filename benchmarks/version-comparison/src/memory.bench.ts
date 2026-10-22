@@ -46,7 +46,7 @@ function measureRetainedRouteFootprint(
   const sharedConfig = {
     params: (raw: Record<string, unknown>) => ({ id: Number(raw.id) }),
   };
-  const bucket = new Array<unknown>(count);
+  const bucket = Array.from<unknown>({length: count});
 
   for (let i = 0; i < 64; i++) {
     defineRouteFn(sharedConfig);
@@ -74,7 +74,7 @@ function measureRetainedRouteFootprint(
 
 export function runMemoryAudit(iterations: number = 100_000) {
   console.log("\n=========================================================================");
-  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs v0.5.0 vs Isolates (${(iterations / 1000).toFixed(0)}k Ops)`);
+  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs current vs Isolates (${(iterations / 1000).toFixed(0)}k Ops)`);
   console.log("=========================================================================");
 
   console.log("  [0] Retained Route Instance Footprint (defineRoute):");
@@ -95,7 +95,7 @@ export function runMemoryAudit(iterations: number = 100_000) {
       `      Published v0.4.0          : ${String(f040.bytesPerRoute).padStart(9)} B/route (${f040.totalBytesFor10Routes} B for 10 routes)`,
     );
     console.log(
-      `      Current v0.5.0 (Prototype): ${String(fCur.bytesPerRoute).padStart(9)} B/route (${fCur.totalBytesFor10Routes} B for 10 routes — < 1 KB)`,
+      `      Current                   : ${String(fCur.bytesPerRoute).padStart(9)} B/route (${fCur.totalBytesFor10Routes} B for 10 routes — < 1 KB)`,
     );
   }
 
@@ -132,7 +132,7 @@ export function runMemoryAudit(iterations: number = 100_000) {
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
-    console.log(`      Current v0.5.0            : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
+    console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
     console.log(`      Candidate Isolate         : ${String(mIsolate.deltaKb).padStart(9)} KB (${mIsolate.bytesPerOp} bytes/op)`);
   }
 
@@ -156,7 +156,7 @@ export function runMemoryAudit(iterations: number = 100_000) {
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
-    console.log(`      Current v0.5.0            : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
+    console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
     console.log(`      Ecosystem ufo.parseQuery  : ${String(mUfo.deltaKb).padStart(9)} KB (${mUfo.bytesPerOp} bytes/op)`);
     console.log(`      Candidate Isolate         : ${String(mIsolate.deltaKb).padStart(9)} KB (${mIsolate.bytesPerOp} bytes/op)`);
   }

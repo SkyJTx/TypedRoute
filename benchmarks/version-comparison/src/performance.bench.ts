@@ -30,7 +30,7 @@ export function registerPerformanceBenchmarks() {
         v040.defineRoute(sharedRouteConfig);
       });
 
-      bench("Current v0.5.0 defineRoute (Prototype Shared)", () => {
+      bench("Current defineRoute (Prototype Shared)", () => {
         current.defineRoute(sharedRouteConfig);
       });
     });
@@ -48,7 +48,7 @@ export function registerPerformanceBenchmarks() {
         v040.buildUrl(fixtures.static.pattern);
       });
 
-      bench("Current v0.5.0 buildUrl", () => {
+      bench("Current buildUrl", () => {
         current.buildUrl(fixtures.static.pattern);
       });
 
@@ -73,7 +73,7 @@ export function registerPerformanceBenchmarks() {
         v040.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params });
       });
 
-      bench("Current v0.5.0 buildUrl", () => {
+      bench("Current buildUrl", () => {
         current.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params });
       });
 
@@ -114,7 +114,7 @@ export function registerPerformanceBenchmarks() {
         });
       });
 
-      bench("Current v0.5.0 buildUrl", () => {
+      bench("Current buildUrl", () => {
         current.buildUrl(fixtures.complex.pattern, {
           params: fixtures.complex.params,
           search: fixtures.complex.search,
@@ -150,7 +150,7 @@ export function registerPerformanceBenchmarks() {
         v040.parseFastUrl(fixtures.urls.full);
       });
 
-      bench("Current v0.5.0 parseFastUrl (Monomorphic ParsedUrl)", () => {
+      bench("Current parseFastUrl (Monomorphic ParsedUrl)", () => {
         current.parseFastUrl(fixtures.urls.full);
       });
 
@@ -176,7 +176,7 @@ export function registerPerformanceBenchmarks() {
         v040.normalizeSearchParams(fixtures.urls.query);
       });
 
-      bench("Current v0.5.0 normalizeSearchParams", () => {
+      bench("Current normalizeSearchParams", () => {
         current.normalizeSearchParams(fixtures.urls.query);
       });
 
@@ -238,7 +238,7 @@ export function registerPerformanceBenchmarks() {
         await v040Middleware(fixtures.urls.request, dummyNext);
       });
 
-      bench("Current v0.5.0 createMiddleware", async () => {
+      bench("Current createMiddleware", async () => {
         await currentMiddleware(fixtures.urls.request, dummyNext);
       });
 

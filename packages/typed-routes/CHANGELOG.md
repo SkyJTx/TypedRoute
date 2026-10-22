@@ -1,5 +1,18 @@
 # @skyjt/typed-routes
 
+## 0.6.1
+
+### Patch Changes
+
+- Streamline middleware request pipeline and engine performance:
+  
+  - **1.47 µs Middleware Pipeline**: Reduced middleware request dispatch latency from 2.16 µs to 1.47 µs (32% speedup) and cut memory allocation from 293 B to 189 B (35% reduction).
+  - **Monomorphic Pre-Compiled Validator Slots**: Pre-compiled params and search validators once on RouteNodeMeta initialization (compiledParamsValidator, compiledSearchValidator), eliminating runtime WeakMap.get lookups on every request.
+  - **Active Request Lifecycle Binding**: Passed active incoming Request directly to getScopedEvent, eliminating synthetic fallback new Request() allocations.
+  - **Zero-Closure Query Extraction**: Eliminated per-request getRawSearch closure allocation and short-circuited unvalidated routes via integer bitflags (RouteFlags.HasValidation).
+  - **Leading-Slash URL Fast-Path**: Added leading-slash ASCII short-circuit (urlStr.charCodeAt(0) === 47) in parseFastUrl to bypass protocol scanning for pathname-only requests.
+  - **Zero-Options Path Builder Fast-Path**: Added fast-path in buildUrl when options === undefined, eliminating option object property checks.
+
 ## 0.6.0
 
 ### Minor Changes

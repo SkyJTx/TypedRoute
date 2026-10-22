@@ -357,5 +357,8 @@ export function buildUrl(
     builder = compilePathBuilder(pattern);
     builderCache.set(pattern, builder);
   }
-  return builder(options?.params, options?.search, options?.hash);
+  if (!options) {
+    return builder();
+  }
+  return builder(options.params, options.search, options.hash);
 }

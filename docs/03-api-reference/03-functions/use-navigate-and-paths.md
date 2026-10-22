@@ -110,6 +110,7 @@ if (result.success) {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.6.1` | Added zero-options fast path (`options === undefined`) in `buildUrl`, returning static paths with near-zero latency. |
 | `v0.4.0` | Updated `RouteParamsFor` and `RouteSearchFor` inference for zero-cast `useNavigate` and `paths.build`. |
 | `v0.2.0` | Introduced precompiled path builders (`compilePathBuilder`) and zero-allocation query serialization (`serializeFastQuery`). |
 | `v0.1.0` | Initial release of `useNavigate`, `buildUrl`, and `validateData`. |

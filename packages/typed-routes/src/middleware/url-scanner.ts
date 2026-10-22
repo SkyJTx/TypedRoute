@@ -20,18 +20,24 @@ export interface ParsedUrl {
  * and JIT scalar replacement.
  */
 export function parseFastUrl(urlStr: string, base: string = "/"): ParsedUrl {
-  const protoEnd = urlStr.indexOf("://");
-  const hostStart = protoEnd === -1 ? 0 : protoEnd + 3;
-  const pathStart = urlStr.indexOf("/", hostStart);
+  let pathStart = 0;
 
-  if (pathStart === -1) {
-    const qIdx = urlStr.indexOf("?", hostStart);
-    if (qIdx === -1) {
-      return { pathname: base === "/" ? "/" : stripPathBase("/", base), searchStr: "" };
+  if (urlStr.charCodeAt(0) === 47) {
+    pathStart = 0;
+  } else {
+    const protoEnd = urlStr.indexOf("://");
+    const hostStart = protoEnd === -1 ? 0 : protoEnd + 3;
+    pathStart = urlStr.indexOf("/", hostStart);
+
+    if (pathStart === -1) {
+      const qIdx = urlStr.indexOf("?", hostStart);
+      if (qIdx === -1) {
+        return { pathname: base === "/" ? "/" : stripPathBase("/", base), searchStr: "" };
+      }
+      const hIdx = urlStr.indexOf("#", qIdx + 1);
+      const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
+      return { pathname: base === "/" ? "/" : stripPathBase("/", base), searchStr };
     }
-    const hIdx = urlStr.indexOf("#", qIdx + 1);
-    const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
-    return { pathname: base === "/" ? "/" : stripPathBase("/", base), searchStr };
   }
 
   const qIdx = urlStr.indexOf("?", pathStart);
