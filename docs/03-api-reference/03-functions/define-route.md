@@ -90,6 +90,7 @@ export default function UserDetailPage() {
 2. **Fine-Grained Independence**: `params()` and `paramsError()` are independent `createMemo` signals. When navigating between sibling parameter values (`/users/1` -> `/users/2`), only fine-grained bindings inside `<Show>` update without remounting the component.
 3. **Type Promotion**: Inside `<Show when={params()}>`, `validParams` is typed as non-nullable `Accessor<TParams>`.
 4. **Reactivity in Effects**: In `createEffect`:
+
    ```ts
    createEffect(() => params(), (validParams) => {
      if (!validParams) return;

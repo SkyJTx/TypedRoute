@@ -47,6 +47,7 @@ export default function UserPage() {
 | `QUERY` | Server Only | `TypedAPIHandler<TParams, TSearch>` | Handles HTTP `QUERY` (idempotent body-carrying query) requests. |
 
 > **Good to know**:
+>
 > - Client builds automatically strip all `$GET`, `$POST`, `$DELETE`, etc. handler references from `virtual:file-routes` so server-only code imported by API handlers never enters the browser bundle.
 > - Use `route.handler((event) => ...)` to define HTTP method exports so `event.params` and `event.search` are automatically typed from `export const route = defineRoute(...)`.
 

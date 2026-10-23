@@ -69,6 +69,14 @@ export function coercePrimitive(value: unknown): unknown {
 export function coerceRecord(record: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const key in record) {
+    if (
+      key === "__proto__" ||
+      key === "constructor" ||
+      key === "prototype" ||
+      !Object.prototype.hasOwnProperty.call(record, key)
+    ) {
+      continue;
+    }
     result[key] = coercePrimitive(record[key]);
   }
   return result;
@@ -78,6 +86,9 @@ export function coerceRecord(record: Record<string, unknown>): Record<string, un
  * Appends a decoded query parameter into the target record, promoting duplicate keys into arrays.
  */
 function appendParam(result: Record<string, unknown>, key: string, value: string): void {
+  if (key === "__proto__" || key === "constructor" || key === "prototype") {
+    return;
+  }
   const existing = result[key];
   if (existing !== undefined && Object.prototype.hasOwnProperty.call(result, key)) {
     if (Array.isArray(existing)) {
@@ -159,6 +170,14 @@ export function normalizeSearchParams(
 
   const result: Record<string, unknown> = {};
   for (const key in input) {
+    if (
+      key === "__proto__" ||
+      key === "constructor" ||
+      key === "prototype" ||
+      !Object.prototype.hasOwnProperty.call(input, key)
+    ) {
+      continue;
+    }
     const value = input[key];
     if (value !== undefined) {
       result[key] = value;

@@ -36,19 +36,19 @@ Detailed reference specifications for components, file conventions, functions, a
 
 ### Components
 
-- **[`<Link>`](./03-api-reference/01-components/link.md)** � Type-safe anchor component for client-side navigation.
+- **[`<Link>`](./03-api-reference/01-components/link.md)** — Type-safe anchor component for client-side navigation.
 
 ### File-System Conventions
 
-- **[Route File Exports](./03-api-reference/02-file-conventions/route-file-exports.md)** � Special exports recognized in route files (`route`, `default`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `QUERY`).
+- **[Route File Exports](./03-api-reference/02-file-conventions/route-file-exports.md)** — Special exports recognized in route files (`route`, `default`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `QUERY`).
 
 ### Functions
 
-- **[`defineRoute`](./03-api-reference/03-functions/define-route.md)** � Declare route schemas, preloading, validation error telemetry, reactive hooks, and typed API handlers.
-- **[`createMiddleware`](./03-api-reference/03-functions/create-middleware.md)** � Server fetch middleware for API dispatch, schema validation, and `isPage` error routing.
-- **[`createRouter` & `interceptFileRoutes`](./03-api-reference/03-functions/create-router.md)** � Initialize the SolidJS router and bind validation providers to the route manifest.
-- **[`useNavigate`, `buildUrl`, & `validateData`](./03-api-reference/03-functions/use-navigate-and-paths.md)** � Programmatic navigation, URL serialization, and Universal Schema validation utilities.
+- **[`defineRoute`](./03-api-reference/03-functions/define-route.md)** — Declare route schemas, preloading, validation error telemetry, reactive hooks, and typed API handlers.
+- **[`createMiddleware`](./03-api-reference/03-functions/create-middleware.md)** — Server fetch middleware for API dispatch, schema validation, and `isPage` error routing.
+- **[`createRouter` & `interceptFileRoutes`](./03-api-reference/03-functions/create-router.md)** — Initialize the SolidJS router and bind validation providers to the route manifest.
+- **[`useNavigate`, `buildUrl`, & `validateData`](./03-api-reference/03-functions/use-navigate-and-paths.md)** — Programmatic navigation, URL serialization, and Universal Schema validation utilities.
 
 ### Configuration
 
-- **[`routes()` Vite Plugin](./03-api-reference/04-configuration/vite-plugin.md)** � Vite plugin configuration for `@skyjt/typed-routes/vite` and `@skyjt/typed-routes-solid/vite`.
+- **[`routes()` Vite Plugin](./03-api-reference/04-configuration/vite-plugin.md)** — Vite plugin configuration for `@skyjt/typed-routes/vite` and `@skyjt/typed-routes-solid/vite`.

@@ -49,6 +49,7 @@ export default function UserProfilePage() {
 ```
 
 > **Good to know**:
+>
 > - `route.useParams()` and `route.useSearch()` return reactive SolidJS `RouteAccessorTuple<T>` accessors (`readonly [data: Accessor<T | undefined>, error: Accessor<RouteValidationError | undefined>]`), unpacked once at component setup following Solid's `createSignal` convention (`const [params, paramsError] = route.useParams()`).
 > - `params()` and `paramsError()` are independent fine-grained `createMemo` accessors. Passing `when={params()}` to Solid's `<Show>` promotes `validParams` to a non-nullable `Accessor<TParams>` (`Accessor<{ id: number }>`) with 100% fine-grained DOM updates and zero remounts on sibling navigation (`/users/1` -> `/users/2`).
 > - In effects or observers, `createEffect(() => params(), (validParams) => { if (!validParams) return; ... })` narrows `validParams` to `TParams`.

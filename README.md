@@ -10,7 +10,7 @@
 
 | Package | Version | Description |
 | :--- | :--- | :--- |
-| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.6.1` | Framework-agnostic routing core: schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), type inference, `route.handler()`, `RouteValidationTuple` (`[data, error]`), `evaluateRouteTarget`, API middleware (`createMiddleware`), and Vite plugin. |
+| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.6.2` | Framework-agnostic routing core: schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), type inference, `route.handler()`, `RouteValidationTuple` (`[data, error]`), `evaluateRouteTarget`, API middleware (`createMiddleware`), and Vite plugin. |
 | **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.5.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter`, `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), `<Link>`, `useNavigate`, and Solid SSR Vite plugin. |
 
 ---

@@ -37,6 +37,7 @@ export default function Navigation() {
 | `end` | `boolean` | `false` | When `true`, only matches `activeClass` when the pathname matches the end of the URL exactly. |
 
 > **Good to know**:
+>
 > - Always import the bound `<Link>` returned by `createRouter<typeof pageRoutes>(...)` in `src/router.ts` so `TManifest` is pre-bound to your project's `pageRoutes` tuple.
 > - Because `virtual:file-routes` splits its manifest into a leaf module (`virtual:file-routes-manifest:*`), you can safely import `<Link>` from `src/router.ts` inside route definitions and components without causing circular SSR import errors.
 

@@ -12,12 +12,14 @@ When a user visits a route with invalid URL parameters or search queries (for ex
    - For UI page requests (`isPage: true`), if `options.onValidationError` returns `void`, `createMiddleware` sets `event.validationError = error` and falls through via `next()`. This allows SSR to render the page component directly with validation error information instead of returning a generic 400 JSON response.
 2. **Reactive Accessor Tuples (`RouteAccessorTuple<T>`)**:
    - `route.useParams()` and `route.useSearch()` return a tuple of two independent reactive accessors:
+
      ```ts
      export type RouteAccessorTuple<T> = readonly [
        data: Accessor<T | undefined>,
        error: Accessor<RouteValidationError | undefined>,
      ];
      ```
+
    - Unpacked once at component setup (`const [params, paramsError] = route.useParams()`), following Solid's `createSignal` idiom.
    - Passing `when={params()}` to Solid's `<Show>` promotes the keyed render prop `(validParams)` to a non-nullable `Accessor<TParams>`, providing fine-grained DOM updates without remounting the page on parameter changes.
 
@@ -83,6 +85,7 @@ export default function UserDetailPage() {
 - **Fine-Grained Independence**: `params()` and `paramsError()` are independent `createMemo` signals. When navigating between valid sibling parameters (`/users/1` -> `/users/2`), `paramsError()` remains `undefined` and only fine-grained bindings inside `<Show>` update, with zero component or DOM remounting.
 - **Type-Safe Narrowing**: Inside `<Show when={params()}>`, the keyed render prop `validParams` is typed as `Accessor<TParams>` (`Accessor<{ id: number }>`).
 - **Reactivity in Effects**: In `createEffect`:
+
   ```ts
   createEffect(() => params(), (validParams) => {
     if (!validParams) return;

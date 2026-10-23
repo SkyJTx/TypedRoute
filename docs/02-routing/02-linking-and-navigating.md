@@ -81,6 +81,7 @@ export function SearchToolbar() {
 ```
 
 > **Good to know**:
+>
 > - If a route defines `params: v.object({ id: v.number() })` in `defineRoute`, `RouteParamsFor` infers `{ id: number }`.
 > - If a dynamic route `/posts/:slug` does **not** export `defineRoute({ params })`, `RouteParamsFor` automatically falls back to `ExtractPathParams<"/posts/:slug">`, inferring `{ slug: string | number }`.
 > - `RouteSearchFor` automatically wraps schema output keys in `Partial<...>`, allowing callers to omit keys that have schema defaults (`v.optional(v.string(), "")`).

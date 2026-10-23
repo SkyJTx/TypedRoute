@@ -42,6 +42,7 @@ export default defineConfig({
 | `moduleId` | `string` | `"virtual:file-routes"` | Virtual module specifier used to import the route manifest. |
 
 > **Good to know**:
+>
 > - **Circular SSR Import Protection (`virtual:file-routes-manifest:*`)**: When a route file defines `export const route = defineRoute(...)` and imports `<Link>` from `src/router.ts` (which in turn imports `{ pageRoutes } from "virtual:file-routes"`), a static import cycle exists:
 >   `virtual:file-routes` -> `route-file.tsx?pick=route` -> `src/router.ts` -> `virtual:file-routes`.
 >   To guarantee `routes` and `pageRoutes` are never in the Temporal Dead Zone (TDZ) when `src/router.ts` evaluates, `skyjt:typed-routes:normalize-virtual-routes` splits `virtual:file-routes` into a zero-dependency leaf manifest module (`virtual:file-routes-manifest:<env>`) and a route-data binder (`Object.assign(__routeData, ...)`). Because the leaf manifest has zero static imports, ECMAScript DFS post-order evaluation and Vite's `ssrTransform` always initialize `routes` and `pageRoutes` first before evaluating any route module.

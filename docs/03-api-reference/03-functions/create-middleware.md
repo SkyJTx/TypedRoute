@@ -71,6 +71,8 @@ function createMiddleware(
 - **`next`**: Fallback callback `() => Response | Promise<Response>`. Always invoked with **zero arguments** (`next()`) for compatibility with `@solidjs/vite-plugin` (`start.middleware`).
 
 > **Good to know**:
+>
+> - **Zero-allocation URL parsing & open-redirect sanitization**: Incoming requests are parsed via the internal ASCII scanner (`parseFastUrl`). It strips base prefixes with zero `new URL()` host allocations, normalizes backslashes, and collapses consecutive leading slashes (`//attacker.com` -> `/attacker.com`), safeguarding against protocol-relative Open Redirect attacks before route matching occurs.
 > - **How `isPage` is calculated**: Internally, `createMiddleware` builds a `WeakMap<APIHandlerRef, MatchedRouteMetadata>` (`buildMatcherAndMetadata`) during initialization. For each matched route, `isPage` is computed deterministically as:
 >   $$\text{isPage} = (\text{route.page} === \text{true}) \land (\text{request.method} \in \{\text{"GET"}, \text{"HEAD"}\})$$
 >   Unlike `filesystem-routing/api`'s internal `createAPIMatcher` (which checks `route.page === true && route.$component !== undefined` and only indexes routes with HTTP handlers), `createMiddleware` tracks `MatchedRouteMetadata` directly without mutating `$component` or executing synthetic handler functions.
@@ -124,6 +126,7 @@ export default createMiddleware(routes, {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.6.2` | Added protocol-relative URL sanitization and backslash neutralization in `parseFastUrl` to defend against open redirect vulnerabilities (`//evil.com` -> `/evil.com`). |
 | `v0.6.1` | Streamlined middleware request pipeline to 1.47 µs (32% latency reduction, 35% heap reduction), monomorphic pre-compiled route validator caching on `RouteNodeMeta`, direct active `Request` reuse in `getScopedEvent`, and leading-slash ASCII short-circuit in `parseFastUrl`. |
 | `v0.4.0` | Accepted `virtual:file-routes` without casts (`MiddlewareRouteEntry`), added deterministic `isPage` calculation via `MatchedRouteMetadata`, and enabled UI page validation fallthrough to SSR. |
 | `v0.2.0` | Added zero-allocation ASCII URL scanner (`parseFastUrl`). |

@@ -5,7 +5,7 @@
  */
 
 import process from "node:process";
-import { current, v011, v040 } from "./targets";
+import { current, v011, v040, v061 } from "./targets";
 import { fixtures } from "./fixtures";
 
 export function forceGc(): void {
@@ -72,7 +72,7 @@ function measureRetainedRouteFootprint(
 
 export function runMemoryAudit(iterations: number = 100_000) {
   console.log("\n=========================================================================");
-  console.log(`  3-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs current (${(iterations / 1000).toFixed(0)}k Ops)`);
+  console.log(`  4-WAY VERSION HEAP AUDIT: v0.1.1 vs v0.4.0 vs v0.6.1 vs current (${(iterations / 1000).toFixed(0)}k Ops)`);
   console.log("=========================================================================");
 
   console.log("  [0] Retained Route Instance Footprint (defineRoute):");
@@ -83,6 +83,9 @@ export function runMemoryAudit(iterations: number = 100_000) {
     const f040 = measureRetainedRouteFootprint(
       v040.defineRoute as unknown as (cfg: Record<string, unknown>) => unknown,
     );
+    const f061 = measureRetainedRouteFootprint(
+      v061.defineRoute as unknown as (cfg: Record<string, unknown>) => unknown,
+    );
     const fCur = measureRetainedRouteFootprint(
       current.defineRoute as unknown as (cfg: Record<string, unknown>) => unknown,
     );
@@ -91,6 +94,9 @@ export function runMemoryAudit(iterations: number = 100_000) {
     );
     console.log(
       `      Published v0.4.0          : ${String(f040.bytesPerRoute).padStart(9)} B/route (${f040.totalBytesFor10Routes} B for 10 routes)`,
+    );
+    console.log(
+      `      Published v0.6.1          : ${String(f061.bytesPerRoute).padStart(9)} B/route (${f061.totalBytesFor10Routes} B for 10 routes)`,
     );
     console.log(
       `      Current                   : ${String(fCur.bytesPerRoute).padStart(9)} B/route (${fCur.totalBytesFor10Routes} B for 10 routes)`,
@@ -105,12 +111,16 @@ export function runMemoryAudit(iterations: number = 100_000) {
     const m040 = measureHeapDelta(() => {
       v040.buildUrl(fixtures.static.pattern);
     }, iterations);
+    const m061 = measureHeapDelta(() => {
+      v061.buildUrl(fixtures.static.pattern);
+    }, iterations);
     const mCur = measureHeapDelta(() => {
       current.buildUrl(fixtures.static.pattern);
     }, iterations);
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
+    console.log(`      Published v0.6.1          : ${String(m061.deltaKb).padStart(9)} KB (${m061.bytesPerOp} bytes/op)`);
     console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
   }
 
@@ -130,6 +140,13 @@ export function runMemoryAudit(iterations: number = 100_000) {
         hash: fixtures.complex.hash,
       });
     }, iterations);
+    const m061 = measureHeapDelta(() => {
+      v061.buildUrl(fixtures.complex.pattern, {
+        params: fixtures.complex.params,
+        search: fixtures.complex.search,
+        hash: fixtures.complex.hash,
+      });
+    }, iterations);
     const mCur = measureHeapDelta(() => {
       current.buildUrl(fixtures.complex.pattern, {
         params: fixtures.complex.params,
@@ -140,6 +157,7 @@ export function runMemoryAudit(iterations: number = 100_000) {
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
+    console.log(`      Published v0.6.1          : ${String(m061.deltaKb).padStart(9)} KB (${m061.bytesPerOp} bytes/op)`);
     console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
   }
 
@@ -152,12 +170,16 @@ export function runMemoryAudit(iterations: number = 100_000) {
     const m040 = measureHeapDelta(() => {
       v040.parseFastUrl(fixtures.urls.full);
     }, iterations);
+    const m061 = measureHeapDelta(() => {
+      v061.parseFastUrl(fixtures.urls.full);
+    }, iterations);
     const mCur = measureHeapDelta(() => {
       current.parseFastUrl(fixtures.urls.full);
     }, iterations);
 
     console.log(`      Published v0.1.1 (new URL): ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
+    console.log(`      Published v0.6.1          : ${String(m061.deltaKb).padStart(9)} KB (${m061.bytesPerOp} bytes/op)`);
     console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
   }
 
@@ -169,12 +191,16 @@ export function runMemoryAudit(iterations: number = 100_000) {
     const m040 = measureHeapDelta(() => {
       v040.normalizeSearchParams(fixtures.urls.query);
     }, iterations);
+    const m061 = measureHeapDelta(() => {
+      v061.normalizeSearchParams(fixtures.urls.query);
+    }, iterations);
     const mCur = measureHeapDelta(() => {
       current.normalizeSearchParams(fixtures.urls.query);
     }, iterations);
 
     console.log(`      Published v0.1.1          : ${String(m011.deltaKb).padStart(9)} KB (${m011.bytesPerOp} bytes/op)`);
     console.log(`      Published v0.4.0          : ${String(m040.deltaKb).padStart(9)} KB (${m040.bytesPerOp} bytes/op)`);
+    console.log(`      Published v0.6.1          : ${String(m061.deltaKb).padStart(9)} KB (${m061.bytesPerOp} bytes/op)`);
     console.log(`      Current                   : ${String(mCur.deltaKb).padStart(9)} KB (${mCur.bytesPerOp} bytes/op)`);
   }
 

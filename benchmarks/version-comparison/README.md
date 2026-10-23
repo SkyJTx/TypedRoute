@@ -1,6 +1,6 @@
 # Benchmark Topic: Version Comparison (@benchmarks/version-comparison)
 
-Evaluates latency distributions, operations per second, and heap memory allocations between the previous published release (`@skyjt/typed-routes@0.1.1`) and the current optimized workspace branch (`@skyjt/typed-routes`).
+Evaluates latency distributions, operations per second, and heap memory allocations across published releases (`@skyjt/typed-routes@0.1.1`, `@skyjt/typed-routes@0.4.0`, `@skyjt/typed-routes@0.6.1`) and the current optimized workspace branch (`@skyjt/typed-routes`).
 
 ---
 

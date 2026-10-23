@@ -1,5 +1,17 @@
 # @skyjt/typed-routes
 
+## 0.6.2
+
+### Patch Changes
+
+- Security hardening, bounded LRU builder cache, and memory leak defense:
+  
+  - **Prototype Pollution Defense**: Sanitized `parseFastQueryString`, `normalizeSearchParams`, and `coerceRecord` to drop malicious prototype pollution keys (`__proto__`, `constructor`, `prototype`), protecting against object property tampering.
+  - **Protocol-Relative Open Redirect Sanitization**: Added protocol-relative URL sanitization in `parseFastUrl` that collapses leading double-slashes (`//evil.com` -> `/evil.com`) and neutralizes backslashes (`\`), preventing open redirect bypasses while preserving standard route path structure.
+  - **Bounded LRU Route Builder Cache**: Replaced unbounded Map cache in `compilePathBuilder` with a high-throughput, O(1) doubly-linked list `LruCache` capped at `MAX_BUILDER_CACHE_SIZE = 2048` entries to prevent heap exhaustion under high-cardinality dynamic routing patterns.
+  - **Cache Management Utilities**: Exported `MAX_BUILDER_CACHE_SIZE`, `clearBuilderCache()`, `getBuilderCacheSize()`, and `LruCache` / `LruNode`.
+  - **4-Way Version Benchmark Suite**: Added published `v0.6.1` to `@benchmarks/version-comparison`, establishing a comprehensive 4-way evaluation matrix (`v0.1.1` vs `v0.4.0` vs `v0.6.1` vs `Current`).
+
 ## 0.6.1
 
 ### Patch Changes

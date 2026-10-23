@@ -69,13 +69,18 @@ export {
   SEGMENT_STATIC,
   SEGMENT_PARAM,
   PathSegment,
+  MAX_BUILDER_CACHE_SIZE,
   buildUrl,
+  clearBuilderCache,
   compilePathBuilder,
+  getBuilderCacheSize,
   inspectPathBuilder,
   serializeFastQuery,
   type CompiledPathBuilder,
   type PathBuilderDebugInfo,
 } from "./router/path-builder";
+
+export { LruCache, LruNode } from "./utils/lru-cache";
 
 export {
   type ParsedUrl,

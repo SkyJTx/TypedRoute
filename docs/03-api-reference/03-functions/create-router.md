@@ -68,6 +68,7 @@ Creates a SolidJS router instance bound to the compile-time route manifest type 
 | `routes` | `RouteDefinition[]` | The underlying route definitions array. |
 
 > **Good to know**:
+>
 > - `interceptFileRoutes` resolves `entry.$$route?.require()?.route` lazily via an internal getter (`getRouteConfig()`). If a route file imports `Link` from `src/router.ts` inside its module, `interceptFileRoutes` completes without throwing a ReferenceError during circular module initialization and resolves the route's config when the component renders or preloads.
 
 ---

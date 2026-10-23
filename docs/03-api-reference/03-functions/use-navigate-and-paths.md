@@ -71,6 +71,20 @@ const href = buildUrl("/users/:id", {
 | `options.search` | `Record<string, unknown>` | `undefined` | Query parameters serialized into `?key=value`. Arrays are serialized as repeated keys (`?tag=a&tag=b`); `undefined` and `null` values are omitted. |
 | `options.hash` | `string` | `undefined` | Hash fragment appended to the URL. |
 
+### Route Builder Caching & Lifecycle
+
+`buildUrl` compiles route patterns into optimized template functions on first access and stores them in an in-memory `LruCache` bounded to `MAX_BUILDER_CACHE_SIZE` (default: 2,048 entries) using an O(1) doubly-linked list eviction strategy.
+
+```ts
+import { clearBuilderCache, getBuilderCacheSize, MAX_BUILDER_CACHE_SIZE } from "@skyjt/typed-routes";
+
+console.log(MAX_BUILDER_CACHE_SIZE); // 2048
+console.log(getBuilderCacheSize());  // e.g. 42
+
+// Reset cache if needed (e.g. between isolated test suites or server restarts)
+clearBuilderCache();
+```
+
 ---
 
 ## `validateData(validator, rawInput)`
@@ -110,6 +124,7 @@ if (result.success) {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.6.2` | Replaced unbounded builder cache with `MAX_BUILDER_CACHE_SIZE = 2048` bounded `LruCache`, exported `clearBuilderCache` and `getBuilderCacheSize`, and added prototype pollution defense in query parameter coercion. |
 | `v0.6.1` | Added zero-options fast path (`options === undefined`) in `buildUrl`, returning static paths with near-zero latency. |
 | `v0.4.0` | Updated `RouteParamsFor` and `RouteSearchFor` inference for zero-cast `useNavigate` and `paths.build`. |
 | `v0.2.0` | Introduced precompiled path builders (`compilePathBuilder`) and zero-allocation query serialization (`serializeFastQuery`). |

@@ -1,3 +1,4 @@
+import { LruCache } from "../utils/lru-cache";
 /**
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -45,7 +46,23 @@ export type CompiledPathBuilder = (
 const PARAM_PATTERN_SOURCE =
   "(?::([a-zA-Z0-9_]+)\\?|:([a-zA-Z0-9_]+)|\\*([a-zA-Z0-9_]+)|\\[\\.\\.\\.([a-zA-Z0-9_]+)\\]|\\[([a-zA-Z0-9_]+)\\])";
 
-const builderCache = new Map<string, CompiledPathBuilder>();
+export const MAX_BUILDER_CACHE_SIZE = 2048;
+
+const builderCache = new LruCache<string, CompiledPathBuilder>(MAX_BUILDER_CACHE_SIZE);
+
+/**
+ * Resets the in-memory compiled route builder cache.
+ */
+export function clearBuilderCache(): void {
+  builderCache.clear();
+}
+
+/**
+ * Returns the current number of cached compiled route builders.
+ */
+export function getBuilderCacheSize(): number {
+  return builderCache.size;
+}
 
 /**
  * Checks whether an ASCII string consists solely of RFC 3986 unreserved URI characters
@@ -261,6 +278,10 @@ export function compilePathBuilder(pattern: string): CompiledPathBuilder {
         }
       }
 
+      if (pathname.length > 1 && pathname.charCodeAt(pathname.length - 1) === 47) {
+        pathname = pathname.slice(0, -1);
+      }
+
       if (search) {
         const q = serializeFastQuery(search);
         if (q) {
@@ -353,7 +374,7 @@ export function buildUrl(
   },
 ): string {
   let builder = builderCache.get(pattern);
-  if (!builder) {
+  if (builder === undefined) {
     builder = compilePathBuilder(pattern);
     builderCache.set(pattern, builder);
   }

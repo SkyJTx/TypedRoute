@@ -8,24 +8,24 @@ TypedRoute builds on [`filesystem-routing`](https://www.npmjs.com/package/filesy
 
 ```text
 src/
-?ÄÄ routes/
-³   ?ÄÄ (main).tsx              # Layout for the "(main)" route group
-³   ?ÄÄ (main)/
-³   ³   ?ÄÄ index.tsx           # UI Page: /
-³   ³   ÀÄÄ users/
-³   ³       ?ÄÄ index.tsx       # UI Page: /users/
-³   ³       ?ÄÄ [id].tsx        # UI Page: /users/:id
-³   ³       ÀÄÄ new.tsx         # UI Page: /users/new
-³   ?ÄÄ api/
-³   ³   ?ÄÄ health.ts           # API Endpoint: /api/health
-³   ³   ÀÄÄ users/
-³   ³       ?ÄÄ index.ts        # API Endpoint: /api/users/
-³   ³       ÀÄÄ [id].ts         # API Endpoint: /api/users/:id
-³   ÀÄÄ [...404].tsx            # Catch-all UI Page: /*404
-?ÄÄ router.ts                   # Client & SSR router instance
-?ÄÄ middleware.ts               # Server request validation & API dispatch middleware
-?ÄÄ App.tsx                     # Root application component
-ÀÄÄ Document.tsx                # HTML document shell (Solid 2.0)
+â”œâ”€â”€ routes/
+â”‚   â”œâ”€â”€ (main).tsx              # Layout for the "(main)" route group
+â”‚   â”œâ”€â”€ (main)/
+â”‚   â”‚   â”œâ”€â”€ index.tsx           # UI Page: /
+â”‚   â”‚   â””â”€â”€ users/
+â”‚   â”‚       â”œâ”€â”€ index.tsx       # UI Page: /users/
+â”‚   â”‚       â”œâ”€â”€ [id].tsx        # UI Page: /users/:id
+â”‚   â”‚       â””â”€â”€ new.tsx         # UI Page: /users/new
+â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â”œâ”€â”€ health.ts           # API Endpoint: /api/health
+â”‚   â”‚   â””â”€â”€ users/
+â”‚   â”‚       â”œâ”€â”€ index.ts        # API Endpoint: /api/users/
+â”‚   â”‚       â””â”€â”€ [id].ts         # API Endpoint: /api/users/:id
+â”‚   â””â”€â”€ [...404].tsx            # Catch-all UI Page: /*404
+â”œâ”€â”€ router.ts                   # Client & SSR router instance
+â”œâ”€â”€ middleware.ts               # Server request validation & API dispatch middleware
+â”œâ”€â”€ App.tsx                     # Root application component
+â””â”€â”€ Document.tsx                # HTML document shell (Solid 2.0)
 ```
 
 ---
@@ -48,8 +48,14 @@ src/
 At build and dev time, `virtual:file-routes` exposes two views of your route files:
 
 | Export | Type | Consumer | Description |
-| :--- | :--- | :--- | :---
+| :--- | :--- | :--- | :--- |
 | `default` (`routes`) | Flat `readonly MiddlewareRouteEntry[]` tuple | `createMiddleware(routes)` | Contains every route file in scan order, including both UI pages (`page: true`) and API endpoints (`page: false`). |
 | `pageRoutes` | Nested `readonly FileRouteTreeEntry[]` tuple | `interceptFileRoutes(pageRoutes)` | Contains only UI page routes (`page: true`), nested under layout routes with `(group)` segments stripped. |
 
 > **Good to know**: `@skyjt/typed-routes/vite` automatically splits `virtual:file-routes` into a zero-dependency leaf manifest module (`virtual:file-routes-manifest:<env>`) and a route-data binder. This guarantees `routes` and `pageRoutes` are initialized before any route file's top-level imports (such as `import { Link } from "~/router"`) execute during SSR.
+
+---
+
+## Next Steps
+
+Now that your project structure is configured, continue to **[Defining Routes](../02-routing/01-defining-routes.md)** to learn how to declare typed path parameters, query search schemas, and automatic type coercions.
