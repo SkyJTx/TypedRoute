@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createRoot, createSignal, createComponent } from "solid-js";
+import { createRoot, createSignal, createComponent, createEffect, flush } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import * as v from "valibot";
 import { RouteValidationError, inspectRoute } from "@skyjt/typed-routes";
@@ -109,7 +109,7 @@ describe("Fine-Grained Reactive Unwrapping & Route Definition", () => {
       expect(onErrorMock).not.toHaveBeenCalled();
 
       setRawParams({ id: "43" });
-      await Promise.resolve();
+      flush();
       expect(paramsError()).toBeUndefined();
       expect(params()?.id).toBe(43);
     });
@@ -141,7 +141,7 @@ describe("Fine-Grained Reactive Unwrapping & Route Definition", () => {
 
       // Transition to invalid ("abc")
       setRawParams({ id: "abc" });
-      await Promise.resolve();
+      flush();
       expect(mountCount).toBe(1);
       expect(params()).toBeUndefined();
       expect(paramsError()).toBeInstanceOf(RouteValidationError);
@@ -151,7 +151,7 @@ describe("Fine-Grained Reactive Unwrapping & Route Definition", () => {
 
       // Transition back to valid ("99")
       setRawParams({ id: "99" });
-      await Promise.resolve();
+      flush();
       expect(mountCount).toBe(1);
       expect(paramsError()).toBeUndefined();
       expect(params()).toEqual({ id: 99 });
@@ -195,14 +195,152 @@ describe("Fine-Grained Reactive Unwrapping & Route Definition", () => {
       expect(search()).toEqual({ page: 2 });
 
       setRawParams({ id: "invalid" });
-      await Promise.resolve();
+      flush();
       expect(params()).toBeUndefined();
       expect(paramsError()).toBeInstanceOf(RouteValidationError);
 
       setRawSearch({ page: "bad" });
-      await Promise.resolve();
+      flush();
       expect(search()).toBeUndefined();
       expect(searchError()).toBeInstanceOf(RouteValidationError);
+
+      unmount();
+    });
+
+    it("defers schema validation via { lazy: true } until accessors are actually read", () => {
+      const paramsValidator = vi.fn((raw: { id: string }) => ({ id: Number(raw.id) }));
+      const searchValidator = vi.fn((raw: { page: string }) => ({ page: Number(raw.page) }));
+
+      const lazyRoute = defineRoute({
+        params: paramsValidator,
+        search: searchValidator,
+      });
+
+      const [rawParams] = createSignal<Record<string, string | undefined>>({ id: "10" });
+      const [rawSearch] = createSignal<Record<string, string | undefined>>({ page: "1" });
+      currentParamsSignal = rawParams;
+      currentSearchSignal = rawSearch;
+
+      let paramsTuple!: RouteAccessorTuple<{ id: number }>;
+      let searchTuple!: RouteAccessorTuple<{ page: number }>;
+
+      function LazyChild() {
+        paramsTuple = lazyRoute.useParams();
+        searchTuple = lazyRoute.useSearch();
+        return document.createElement("div");
+      }
+
+      const { unmount } = render(() =>
+        createComponent(RouteValidationProvider, {
+          config: lazyRoute.config,
+          get children() {
+            return createComponent(LazyChild, {});
+          },
+        }),
+      );
+
+      // Before reading params() or search(), neither validator has executed
+      expect(paramsValidator).not.toHaveBeenCalled();
+      expect(searchValidator).not.toHaveBeenCalled();
+
+      // Reading params() triggers only paramsValidator
+      expect(paramsTuple[0]()).toEqual({ id: 10 });
+      expect(paramsValidator).toHaveBeenCalledTimes(1);
+      expect(searchValidator).not.toHaveBeenCalled();
+
+      // Reading search() triggers searchValidator
+      expect(searchTuple[0]()).toEqual({ page: 1 });
+      expect(searchValidator).toHaveBeenCalledTimes(1);
+
+      unmount();
+    });
+
+    it("isolates params and search reactivity with zero cross-triggering and keeps error() dormant across valid navigations", () => {
+      const paramsSpy = vi.fn((raw: { id: string }) => {
+        const n = Number(raw.id);
+        if (!Number.isFinite(n)) {
+          throw new Error("Invalid id");
+        }
+        return { id: n };
+      });
+      const searchSpy = vi.fn((raw: { q?: string }) => ({ q: raw.q ?? "" }));
+
+      const isolatedRoute = defineRoute({
+        params: paramsSpy,
+        search: searchSpy,
+      });
+
+      const [rawParams, setRawParams] = createSignal<Record<string, string | undefined>>({ id: "1" });
+      const [rawSearch, setRawSearch] = createSignal<Record<string, string | undefined>>({ q: "init" });
+      currentParamsSignal = rawParams;
+      currentSearchSignal = rawSearch;
+
+      const observedErrors: Array<RouteValidationError | undefined> = [];
+      let paramsTuple!: RouteAccessorTuple<{ id: number }>;
+      let searchTuple!: RouteAccessorTuple<{ q: string }>;
+
+      function IsolatedChild() {
+        paramsTuple = isolatedRoute.useParams();
+        searchTuple = isolatedRoute.useSearch();
+        const [, paramsError] = paramsTuple;
+        createEffect(
+          () => paramsError(),
+          (err) => {
+            observedErrors.push(err);
+          },
+        );
+        return document.createElement("div");
+      }
+
+      const { unmount } = render(() =>
+        createComponent(RouteValidationProvider, {
+          config: isolatedRoute.config,
+          get children() {
+            return createComponent(IsolatedChild, {});
+          },
+        }),
+      );
+
+      flush();
+      const [params, paramsError] = paramsTuple;
+      const [search] = searchTuple;
+
+      expect(params()).toEqual({ id: 1 });
+      expect(search()).toEqual({ q: "init" });
+      expect(paramsSpy).toHaveBeenCalledTimes(1);
+      expect(searchSpy).toHaveBeenCalledTimes(1);
+      expect(observedErrors).toEqual([undefined]);
+
+      // Updating search query must NOT re-run params validation
+      setRawSearch({ q: "updated-1" });
+      flush();
+      expect(search()).toEqual({ q: "updated-1" });
+      expect(searchSpy).toHaveBeenCalledTimes(2);
+      expect(paramsSpy).toHaveBeenCalledTimes(1);
+
+      // Navigating across valid params must NOT re-run search validation OR trigger error() effect
+      setRawParams({ id: "2" });
+      flush();
+      expect(params()).toEqual({ id: 2 });
+      expect(paramsSpy).toHaveBeenCalledTimes(2);
+      expect(searchSpy).toHaveBeenCalledTimes(2);
+      expect(observedErrors).toEqual([undefined]);
+
+      // Navigating to invalid params triggers error() effect and snapshots rawSearch via untrack()
+      setRawParams({ id: "invalid" });
+      flush();
+      expect(params()).toBeUndefined();
+      expect(paramsError()).toBeInstanceOf(RouteValidationError);
+      expect(paramsError()?.rawSearch).toEqual({ q: "updated-1" });
+      expect(observedErrors.length).toBe(2);
+      expect(observedErrors[1]).toBeInstanceOf(RouteValidationError);
+
+      // Updating search while params is in error state still does NOT re-trigger params validation
+      const countBeforeSearchUpdate = paramsSpy.mock.calls.length;
+      setRawSearch({ q: "updated-2" });
+      flush();
+      expect(search()).toEqual({ q: "updated-2" });
+      expect(paramsSpy.mock.calls.length).toBe(countBeforeSearchUpdate);
 
       unmount();
     });

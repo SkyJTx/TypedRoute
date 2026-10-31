@@ -5,7 +5,7 @@
  */
 
 import { performance } from "node:perf_hooks";
-import { current, v011, v040, v061 } from "./targets";
+import { current, v011, v040, v061, v062 } from "./targets";
 import { fixtures } from "./fixtures";
 import { forceGc } from "./memory.bench";
 
@@ -44,11 +44,13 @@ function printThroughputGroup(
   v011Res: ThroughputResult,
   v040Res: ThroughputResult,
   v061Res: ThroughputResult,
+  v062Res: ThroughputResult,
   curRes: ThroughputResult,
 ) {
   const speedupVsV011 = (curRes.opsPerSec / v011Res.opsPerSec).toFixed(2);
   const speedupVsV040 = (curRes.opsPerSec / v040Res.opsPerSec).toFixed(2);
   const speedupVsV061 = (curRes.opsPerSec / v061Res.opsPerSec).toFixed(2);
+  const speedupVsV062 = (curRes.opsPerSec / v062Res.opsPerSec).toFixed(2);
 
   console.log(`  ${title}:`);
   console.log(
@@ -61,13 +63,16 @@ function printThroughputGroup(
     `      Published v0.6.1          : ${v061Res.opsPerSec.toLocaleString().padStart(12)} ops/sec (${v061Res.elapsedMs.toFixed(1)} ms, ${v061Res.nsPerOp} ns/op)`,
   );
   console.log(
-    `      Current                   : ${curRes.opsPerSec.toLocaleString().padStart(12)} ops/sec (${curRes.elapsedMs.toFixed(1)} ms, ${curRes.nsPerOp} ns/op) -> [${speedupVsV011}x vs v0.1.1, ${speedupVsV040}x vs v0.4.0, ${speedupVsV061}x vs v0.6.1]`,
+    `      Published v0.6.2          : ${v062Res.opsPerSec.toLocaleString().padStart(12)} ops/sec (${v062Res.elapsedMs.toFixed(1)} ms, ${v062Res.nsPerOp} ns/op)`,
+  );
+  console.log(
+    `      Current                   : ${curRes.opsPerSec.toLocaleString().padStart(12)} ops/sec (${curRes.elapsedMs.toFixed(1)} ms, ${curRes.nsPerOp} ns/op) -> [${speedupVsV011}x vs v0.1.1, ${speedupVsV040}x vs v0.4.0, ${speedupVsV061}x vs v0.6.1, ${speedupVsV062}x vs v0.6.2]`,
   );
 }
 
 export function runThroughputBenchmarks(iterations: number = 250_000) {
   console.log("\n=========================================================================");
-  console.log(`  4-WAY VERSION SUSTAINED THROUGHPUT STRESS (${(iterations / 1000).toFixed(0)}k Iterations)`);
+  console.log(`  5-WAY VERSION SUSTAINED THROUGHPUT STRESS (${(iterations / 1000).toFixed(0)}k Iterations)`);
   console.log("=========================================================================");
 
   // 1. Static URL Construction Throughput
@@ -75,8 +80,9 @@ export function runThroughputBenchmarks(iterations: number = 250_000) {
     const t011 = measureThroughput("Static URL (v0.1.1)", () => v011.buildUrl(fixtures.static.pattern), iterations);
     const t040 = measureThroughput("Static URL (v0.4.0)", () => v040.buildUrl(fixtures.static.pattern), iterations);
     const t061 = measureThroughput("Static URL (v0.6.1)", () => v061.buildUrl(fixtures.static.pattern), iterations);
+    const t062 = measureThroughput("Static URL (v0.6.2)", () => v062.buildUrl(fixtures.static.pattern), iterations);
     const tCur = measureThroughput("Static URL (current)", () => current.buildUrl(fixtures.static.pattern), iterations);
-    printThroughputGroup("[1] Static URL Construction Throughput", t011, t040, t061, tCur);
+    printThroughputGroup("[1] Static URL Construction Throughput", t011, t040, t061, t062, tCur);
   }
 
   // 2. Dynamic Single-Param URL Throughput
@@ -84,8 +90,9 @@ export function runThroughputBenchmarks(iterations: number = 250_000) {
     const t011 = measureThroughput("Single Param (v0.1.1)", () => v011.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params }), iterations);
     const t040 = measureThroughput("Single Param (v0.4.0)", () => v040.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params }), iterations);
     const t061 = measureThroughput("Single Param (v0.6.1)", () => v061.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params }), iterations);
+    const t062 = measureThroughput("Single Param (v0.6.2)", () => v062.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params }), iterations);
     const tCur = measureThroughput("Single Param (current)", () => current.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params }), iterations);
-    printThroughputGroup("[2] Dynamic Single-Param URL Construction Throughput", t011, t040, t061, tCur);
+    printThroughputGroup("[2] Dynamic Single-Param URL Construction Throughput", t011, t040, t061, t062, tCur);
   }
 
   // 3. Complex Multi-Param + Query + Hash Throughput
@@ -105,12 +112,17 @@ export function runThroughputBenchmarks(iterations: number = 250_000) {
       search: fixtures.complex.search,
       hash: fixtures.complex.hash,
     }), iterations);
+    const t062 = measureThroughput("Complex URL (v0.6.2)", () => v062.buildUrl(fixtures.complex.pattern, {
+      params: fixtures.complex.params,
+      search: fixtures.complex.search,
+      hash: fixtures.complex.hash,
+    }), iterations);
     const tCur = measureThroughput("Complex URL (current)", () => current.buildUrl(fixtures.complex.pattern, {
       params: fixtures.complex.params,
       search: fixtures.complex.search,
       hash: fixtures.complex.hash,
     }), iterations);
-    printThroughputGroup("[3] Complex Multi-Param + Arrays + Hash Throughput", t011, t040, t061, tCur);
+    printThroughputGroup("[3] Complex Multi-Param + Arrays + Hash Throughput", t011, t040, t061, t062, tCur);
   }
 
   // 4. URL Parsing Throughput
@@ -121,8 +133,9 @@ export function runThroughputBenchmarks(iterations: number = 250_000) {
     }, iterations);
     const t040 = measureThroughput("URL Parse (v0.4.0)", () => v040.parseFastUrl(fixtures.urls.full), iterations);
     const t061 = measureThroughput("URL Parse (v0.6.1)", () => v061.parseFastUrl(fixtures.urls.full), iterations);
+    const t062 = measureThroughput("URL Parse (v0.6.2)", () => v062.parseFastUrl(fixtures.urls.full), iterations);
     const tCur = measureThroughput("URL Parse (current)", () => current.parseFastUrl(fixtures.urls.full), iterations);
-    printThroughputGroup("[4] URL Parsing (Host & Pathname Extraction) Throughput", t011, t040, t061, tCur);
+    printThroughputGroup("[4] URL Parsing (Host & Pathname Extraction) Throughput", t011, t040, t061, t062, tCur);
   }
 
   // 5. Search Parameter Normalization Throughput
@@ -130,8 +143,9 @@ export function runThroughputBenchmarks(iterations: number = 250_000) {
     const t011 = measureThroughput("Query Normalize (v0.1.1)", () => v011.normalizeSearchParams(fixtures.urls.query), iterations);
     const t040 = measureThroughput("Query Normalize (v0.4.0)", () => v040.normalizeSearchParams(fixtures.urls.query), iterations);
     const t061 = measureThroughput("Query Normalize (v0.6.1)", () => v061.normalizeSearchParams(fixtures.urls.query), iterations);
+    const t062 = measureThroughput("Query Normalize (v0.6.2)", () => v062.normalizeSearchParams(fixtures.urls.query), iterations);
     const tCur = measureThroughput("Query Normalize (current)", () => current.normalizeSearchParams(fixtures.urls.query), iterations);
-    printThroughputGroup("[5] Search Parameter Normalization Throughput", t011, t040, t061, tCur);
+    printThroughputGroup("[5] Search Parameter Normalization Throughput", t011, t040, t061, t062, tCur);
   }
 
   console.log("=========================================================================\n");

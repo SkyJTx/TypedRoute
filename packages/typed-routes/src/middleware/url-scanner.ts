@@ -18,28 +18,10 @@ export interface ParsedUrl {
  * Collapses consecutive leading slashes and neutralizes backslashes to ensure the pathname
  * is strictly origin-relative and immune to protocol-relative Open Redirect attacks (e.g. "//evil.com").
  */
-function sanitizePathname(raw: string): string {
+function sanitizeDirtyPathname(raw: string): string {
   const len = raw.length;
   if (len <= 1) {
     return len === 0 || raw.charCodeAt(0) === 92 ? "/" : raw;
-  }
-
-  let needsSanitization = false;
-  if (raw.charCodeAt(0) === 47 && (raw.charCodeAt(1) === 47 || raw.charCodeAt(1) === 92)) {
-    needsSanitization = true;
-  } else if (raw.charCodeAt(0) === 92) {
-    needsSanitization = true;
-  } else {
-    for (let i = 0; i < len; i++) {
-      if (raw.charCodeAt(i) === 92) {
-        needsSanitization = true;
-        break;
-      }
-    }
-  }
-
-  if (!needsSanitization) {
-    return raw;
   }
 
   let normalized = "";
@@ -65,8 +47,9 @@ function sanitizePathname(raw: string): string {
  */
 export function parseFastUrl(urlStr: string, base: string = "/"): ParsedUrl {
   let pathStart = 0;
+  const firstCode = urlStr.charCodeAt(0);
 
-  if (urlStr.charCodeAt(0) === 47 || urlStr.charCodeAt(0) === 92) {
+  if (firstCode === 47 || firstCode === 92) {
     pathStart = 0;
   } else {
     const protoEnd = urlStr.indexOf("://");
@@ -84,15 +67,26 @@ export function parseFastUrl(urlStr: string, base: string = "/"): ParsedUrl {
     }
   }
 
+  const bsIdx = urlStr.indexOf("\\", pathStart);
   const qIdx = urlStr.indexOf("?", pathStart);
   if (qIdx === -1) {
     const hIdx = urlStr.indexOf("#", pathStart);
-    const unescapedPath = hIdx === -1 ? urlStr.slice(pathStart) : urlStr.slice(pathStart, hIdx);
-    const rawPath = sanitizePathname(unescapedPath);
+    const pathEnd = hIdx === -1 ? urlStr.length : hIdx;
+    const rawSlice = hIdx === -1 ? urlStr.slice(pathStart) : urlStr.slice(pathStart, hIdx);
+    const isDirty =
+      firstCode === 92 ||
+      (pathEnd - pathStart > 1 && urlStr.charCodeAt(pathStart + 1) === 47) ||
+      (bsIdx !== -1 && bsIdx < pathEnd);
+    const rawPath = isDirty ? sanitizeDirtyPathname(rawSlice) : rawSlice;
     return { pathname: base === "/" ? rawPath : stripPathBase(rawPath, base), searchStr: "" };
   }
 
-  const rawPath = sanitizePathname(urlStr.slice(pathStart, qIdx));
+  const rawSlice = urlStr.slice(pathStart, qIdx);
+  const isDirty =
+    firstCode === 92 ||
+    (qIdx - pathStart > 1 && urlStr.charCodeAt(pathStart + 1) === 47) ||
+    (bsIdx !== -1 && bsIdx < qIdx);
+  const rawPath = isDirty ? sanitizeDirtyPathname(rawSlice) : rawSlice;
   const hIdx = urlStr.indexOf("#", qIdx + 1);
   const searchStr = hIdx === -1 ? urlStr.slice(qIdx + 1) : urlStr.slice(qIdx + 1, hIdx);
 

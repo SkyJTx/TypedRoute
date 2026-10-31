@@ -15,7 +15,6 @@ export type {
   ValidationIssue,
   ValidationResult,
 } from "./types/type-validator";
-export { SchemaValidationError } from "./types/type-validator";
 
 export type {
   RouteLocation,
@@ -79,8 +78,6 @@ export {
   type CompiledPathBuilder,
   type PathBuilderDebugInfo,
 } from "./router/path-builder";
-
-export { LruCache, LruNode } from "./utils/lru-cache";
 
 export {
   type ParsedUrl,

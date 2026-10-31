@@ -1,5 +1,17 @@
 # @skyjt/typed-routes-solid
 
+## 0.5.1
+
+### Patch Changes
+
+- Lazy reactive validation, isolated `params` and `search` signal tracking, and context streamlining:
+  
+  - **Deferred `{ lazy: true }` Accessor Memos**: Configured `createRouteAccessorTuple` memos with `{ lazy: true }` and a shared `readValidatedData` helper so route validation only executes when a component actively reads `params()` or `search()`.
+  - **Reactive Signal Isolation via Lazy `untrack()` Context**: Wrapped cross-target `rawParams` and `rawSearch` error-reporting snapshots in lazy `untrack()` callbacks inside `RouteValidationProvider`, ensuring search query updates never re-trigger `params` validation (and vice versa) and zero snapshot objects are allocated when validation succeeds.
+  - **Streamlined Validation Context**: Removed unused `state` and `hash` memos from `RouteValidationProvider` and `RouteValidationContextValue`, and removed the unused `SchemaValidationError` re-export.
+  - **Updated dependencies**:
+    - `@skyjt/typed-routes@0.6.3`
+
 ## 0.5.0
 
 ### Minor Changes

@@ -58,7 +58,6 @@ export {
   ROUTE_FLAG_CONFIG_RESOLVED,
   ROUTE_FLAG_HAS_PARAMS_SCHEMA,
   ROUTE_FLAG_HAS_SEARCH_SCHEMA,
-  SchemaValidationError,
   RouteValidationError,
   ValidationOutcome,
   PathSegment,

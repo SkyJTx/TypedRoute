@@ -99,15 +99,14 @@ describe("Security Hardening: Open Redirect & Protocol-Relative URL Sanitization
   });
 });
 
-describe("Security Hardening: Bounded LRU Cache (Memory Exhaustion / DoS Defense)", () => {
+describe("Security Hardening: Bounded Native Map Builder Cache & URL Parameter Guards", () => {
   beforeEach(() => {
     clearBuilderCache();
   });
 
-  it("caps builderCache size at MAX_BUILDER_CACHE_SIZE (2048)", () => {
+  it("caps builderCache size at MAX_BUILDER_CACHE_SIZE (2048) under dynamic pattern flooding", () => {
     expect(getBuilderCacheSize()).toBe(0);
 
-    // Flood the cache with 3,000 unique dynamically generated route patterns
     for (let i = 0; i < 3_000; i++) {
       buildUrl(`/dynamic_route_${i}/:id`, { params: { id: i } });
     }
@@ -115,21 +114,41 @@ describe("Security Hardening: Bounded LRU Cache (Memory Exhaustion / DoS Defense
     expect(getBuilderCacheSize()).toBe(MAX_BUILDER_CACHE_SIZE);
   });
 
-  it("promotes accessed entries and evicts least recently used patterns first", () => {
-    // Fill up to capacity
+  it("evicts oldest pattern in FIFO order when capacity is exceeded and recompiles cleanly on demand", () => {
     for (let i = 0; i < MAX_BUILDER_CACHE_SIZE; i++) {
       buildUrl(`/route_${i}/:param`, { params: { param: "val" } });
     }
     expect(getBuilderCacheSize()).toBe(MAX_BUILDER_CACHE_SIZE);
 
-    // Re-access route_0 to promote it to MRU
-    buildUrl("/route_0/:param", { params: { param: "val" } });
-
-    // Insert a new pattern: should evict route_1, NOT route_0
-    buildUrl("/route_brand_new/:param", { params: { param: "val" } });
+    // Insert a new pattern beyond MAX_BUILDER_CACHE_SIZE: evicts oldest entry (/route_0/:param)
+    expect(buildUrl("/route_brand_new/:param", { params: { param: "fresh" } })).toBe(
+      "/route_brand_new/fresh",
+    );
     expect(getBuilderCacheSize()).toBe(MAX_BUILDER_CACHE_SIZE);
 
-    // Route 0 is still in cache
+    // Re-building /route_0/:param still succeeds and keeps size bounded at MAX_BUILDER_CACHE_SIZE
     expect(buildUrl("/route_0/:param", { params: { param: "test" } })).toBe("/route_0/test");
+    expect(getBuilderCacheSize()).toBe(MAX_BUILDER_CACHE_SIZE);
+  });
+
+  it("encodes finite numbers, scientific notation, and optional params accurately (success path)", () => {
+    expect(buildUrl("/items/:id", { params: { id: 42 }, search: { scale: 1e21, flag: true } })).toBe(
+      "/items/42?scale=1e%2B21&flag=true",
+    );
+    expect(buildUrl("/users/:id?", { params: {} })).toBe("/users");
+    expect(buildUrl("/users/:id?", { params: { id: 7 } })).toBe("/users/7");
+  });
+
+  it("rejects non-finite numeric parameters (NaN, Infinity, -Infinity) with RangeError (failure path)", () => {
+    expect(() => buildUrl("/users/:id", { params: { id: Number.NaN } })).toThrow(RangeError);
+    expect(() => buildUrl("/users/:id", { params: { id: Number.POSITIVE_INFINITY } })).toThrow(
+      RangeError,
+    );
+    expect(() => buildUrl("/users/:id", { params: { id: Number.NEGATIVE_INFINITY } })).toThrow(
+      RangeError,
+    );
+    expect(() =>
+      buildUrl("/users/:id", { params: { id: 1 }, search: { page: Number.POSITIVE_INFINITY } }),
+    ).toThrow(RangeError);
   });
 });

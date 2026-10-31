@@ -1,4 +1,3 @@
-import { LruCache } from "../utils/lru-cache";
 /**
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -48,7 +47,7 @@ const PARAM_PATTERN_SOURCE =
 
 export const MAX_BUILDER_CACHE_SIZE = 2048;
 
-const builderCache = new LruCache<string, CompiledPathBuilder>(MAX_BUILDER_CACHE_SIZE);
+const builderCache = new Map<string, CompiledPathBuilder>();
 
 /**
  * Resets the in-memory compiled route builder cache.
@@ -86,12 +85,17 @@ function isSimpleUriToken(str: string): boolean {
 
 /**
  * Encodes a primitive value as a URI component, bypassing native C++ `encodeURIComponent`
- * when the value is an integer or an unreserved ASCII token.
+ * when the value is a finite number without a plus sign or an unreserved ASCII token.
  */
 function encodeFastComponent(val: unknown): string {
   if (typeof val === "number") {
-    const str = String(val);
-    return str.indexOf("+") === -1 ? str : encodeURIComponent(str);
+    if (val > -1e21 && val < 1e21) {
+      return "" + val;
+    }
+    if (!Number.isFinite(val)) {
+      throw new RangeError(`Invalid non-finite numeric route parameter: ${String(val)}`);
+    }
+    return encodeURIComponent(String(val));
   }
   if (typeof val === "boolean") {
     return val ? "true" : "false";
@@ -257,6 +261,64 @@ export function compilePathBuilder(pattern: string): CompiledPathBuilder {
   const segLen = segments.length;
 
   if (!hasOptionalParam) {
+    let paramCount = 0;
+    let paramIdx = -1;
+    for (let i = 0; i < segLen; i++) {
+      if (segments[i].kind === SEGMENT_PARAM) {
+        paramCount++;
+        paramIdx = i;
+      }
+    }
+
+    if (paramCount === 1) {
+      const singleParamKey = segments[paramIdx].text;
+      let singlePrefix = "";
+      for (let i = 0; i < paramIdx; i++) {
+        singlePrefix += segments[i].text;
+      }
+      let singleSuffix = "";
+      for (let i = paramIdx + 1; i < segLen; i++) {
+        singleSuffix += segments[i].text;
+      }
+      const checkTrailingSlash = singleSuffix.length === 0;
+
+      return function buildSingleRequiredParamUrl(
+        params?: Record<string, unknown>,
+        search?: Record<string, unknown>,
+        hash?: string,
+      ): string {
+        const val = params !== undefined ? params[singleParamKey] : undefined;
+        if (val === undefined || val === null) {
+          throw new Error(
+            `Missing required path parameter: "${singleParamKey}" for route pattern "${pattern}"`,
+          );
+        }
+
+        let pathname = singlePrefix + encodeFastComponent(val) + singleSuffix;
+
+        if (
+          checkTrailingSlash &&
+          pathname.length > 1 &&
+          pathname.charCodeAt(pathname.length - 1) === 47
+        ) {
+          pathname = pathname.slice(0, -1);
+        }
+
+        if (search) {
+          const q = serializeFastQuery(search);
+          if (q) {
+            pathname += "?" + q;
+          }
+        }
+
+        if (hash) {
+          pathname += hash.charCodeAt(0) === 35 ? hash : "#" + hash;
+        }
+
+        return pathname;
+      };
+    }
+
     return function buildRequiredParamUrl(
       params?: Record<string, unknown>,
       search?: Record<string, unknown>,
@@ -376,6 +438,12 @@ export function buildUrl(
   let builder = builderCache.get(pattern);
   if (builder === undefined) {
     builder = compilePathBuilder(pattern);
+    if (builderCache.size >= MAX_BUILDER_CACHE_SIZE) {
+      const oldestKey = builderCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        builderCache.delete(oldestKey);
+      }
+    }
     builderCache.set(pattern, builder);
   }
   if (!options) {

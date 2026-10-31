@@ -51,7 +51,7 @@ export class SolidDefinedRoute<
   }
 
   public useParams(): RouteAccessorTuple<TParams> {
-    const ctx = useRouteValidationContext<TParams, TSearch, TState, THash>();
+    const ctx = useRouteValidationContext<TParams, TSearch>();
     if (ctx) {
       return ctx.params;
     }
@@ -71,7 +71,7 @@ export class SolidDefinedRoute<
   }
 
   public useSearch(): RouteAccessorTuple<TSearch> {
-    const ctx = useRouteValidationContext<TParams, TSearch, TState, THash>();
+    const ctx = useRouteValidationContext<TParams, TSearch>();
     if (ctx) {
       return ctx.search;
     }

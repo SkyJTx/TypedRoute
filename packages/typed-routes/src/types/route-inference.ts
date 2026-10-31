@@ -30,11 +30,17 @@ type ExtractSegmentsParams<T extends readonly string[]> = T extends readonly [
   infer Head extends string,
   ...infer Tail extends string[],
 ]
-  ? (Head extends `:${infer Param}`
-      ? { [K in Param]: string | number }
-      : Head extends `*${infer Wildcard}`
-        ? { [K in Wildcard]: string | number }
-        : {}) &
+  ? (Head extends `:${infer OptParam}?`
+      ? { [K in OptParam]?: string | number | undefined }
+      : Head extends `:${infer Param}`
+        ? { [K in Param]: string | number }
+        : Head extends `*${infer Wildcard}`
+          ? { [K in Wildcard]: string | number }
+          : Head extends `[...${infer CatchAll}]`
+            ? { [K in CatchAll]: string | number }
+            : Head extends `[${infer BracketParam}]`
+              ? { [K in BracketParam]: string | number }
+              : {}) &
       ExtractSegmentsParams<Tail>
   : {};
 
@@ -87,11 +93,11 @@ export type RouteParamsFor<TManifest extends readonly unknown[], Path extends st
             ? Simplify<ExtractPathParams<Path>>
             : NonNullable<P>
         : R extends { config: { params?: infer V } }
-          ? [V] extends [undefined]
+          ? [NonNullable<V>] extends [never]
             ? Simplify<ExtractPathParams<Path>>
-            : [unknown] extends [InferOutput<V>]
+            : [unknown] extends [InferOutput<NonNullable<V>>]
               ? Simplify<ExtractPathParams<Path>>
-              : InferOutput<V>
+              : InferOutput<NonNullable<V>>
           : Simplify<ExtractPathParams<Path>>
       : Simplify<ExtractPathParams<Path>>
     : Simplify<ExtractPathParams<Path>>;
@@ -109,9 +115,9 @@ export type RouteSearchFor<TManifest extends readonly unknown[], Path extends st
             ? Record<string, string | number | boolean | string[] | undefined>
             : Partial<NonNullable<S>>
         : R extends { config: { search?: infer V } }
-          ? [V] extends [undefined]
+          ? [NonNullable<V>] extends [never]
             ? Record<string, string | number | boolean | string[] | undefined>
-            : [unknown] extends [InferOutput<V>]
+            : [unknown] extends [InferOutput<NonNullable<V>>]
               ? Record<string, string | number | boolean | string[] | undefined>
               : Partial<NonNullable<InferOutput<V>>>
           : Record<string, string | number | boolean | string[] | undefined>
@@ -124,10 +130,10 @@ export type RouteSearchFor<TManifest extends readonly unknown[], Path extends st
 export type NavigationArgs<TParams, TSearch, TState> =
   ([keyof NonNullable<TParams>] extends [never]
     ? { params?: never }
-    : { params: NonNullable<TParams> }) &
-  ([keyof NonNullable<TSearch>] extends [never]
-    ? { search?: TSearch }
-    : { search?: TSearch }) & {
+    : {} extends NonNullable<TParams>
+      ? { params?: NonNullable<TParams> }
+      : { params: NonNullable<TParams> }) & {
+    search?: TSearch;
     state?: TState;
     hash?: string;
     replace?: boolean;

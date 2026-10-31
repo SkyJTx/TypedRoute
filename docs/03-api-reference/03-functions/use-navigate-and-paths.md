@@ -73,7 +73,7 @@ const href = buildUrl("/users/:id", {
 
 ### Route Builder Caching & Lifecycle
 
-`buildUrl` compiles route patterns into optimized template functions on first access and stores them in an in-memory `LruCache` bounded to `MAX_BUILDER_CACHE_SIZE` (default: 2,048 entries) using an O(1) doubly-linked list eviction strategy.
+`buildUrl` compiles route patterns into optimized template functions on first access and stores them in a bounded native `Map` capped at `MAX_BUILDER_CACHE_SIZE` (default: 2,048 entries) using O(1) FIFO eviction.
 
 ```ts
 import { clearBuilderCache, getBuilderCacheSize, MAX_BUILDER_CACHE_SIZE } from "@skyjt/typed-routes";
@@ -124,6 +124,7 @@ if (result.success) {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.6.3` | Replaced `LruCache` wrapper with bounded native `Map` FIFO eviction, added single-parameter builder specialization (`buildSingleRequiredParamUrl`), and added IEEE-754 finite numeric parameter validation (`RangeError` on `NaN` / `Infinity / -Infinity`). |
 | `v0.6.2` | Replaced unbounded builder cache with `MAX_BUILDER_CACHE_SIZE = 2048` bounded `LruCache`, exported `clearBuilderCache` and `getBuilderCacheSize`, and added prototype pollution defense in query parameter coercion. |
 | `v0.6.1` | Added zero-options fast path (`options === undefined`) in `buildUrl`, returning static paths with near-zero latency. |
 | `v0.4.0` | Updated `RouteParamsFor` and `RouteSearchFor` inference for zero-cast `useNavigate` and `paths.build`. |

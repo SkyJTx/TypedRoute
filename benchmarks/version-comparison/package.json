@@ -14,7 +14,8 @@
     "@skyjt/typed-routes": "workspace:*",
     "@skyjt/typed-routes-v0.1.1": "npm:@skyjt/typed-routes@0.1.1",
     "@skyjt/typed-routes-v0.4.0": "npm:@skyjt/typed-routes@0.4.0",
-    "@skyjt/typed-routes-v0.6.1": "npm:@skyjt/typed-routes@0.6.1"
+    "@skyjt/typed-routes-v0.6.1": "npm:@skyjt/typed-routes@0.6.1",
+    "@skyjt/typed-routes-v0.6.2": "npm:@skyjt/typed-routes@0.6.2"
   },
   "devDependencies": {
     "@types/bun": "latest",

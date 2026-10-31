@@ -29,8 +29,9 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * Memory Layout:
  * - Uses a 31-bit Small Integer (`Smi`) `flags` field instead of multiple boolean properties.
- * - Pre-initializes all 3 in-object slots (`route`, `flags`, `config`) in the constructor
- *   so lazy `config` resolution never triggers a V8 Map or JavaScriptCore Structure transition.
+ * - Pre-initializes all 5 in-object slots (`route`, `flags`, `config`, `compiledParamsValidator`,
+ *   `compiledSearchValidator`) in the constructor so lazy `config` resolution never triggers
+ *   a V8 Map or JavaScriptCore Structure transition.
  */
 export class RouteNodeMeta {
   public readonly route: MiddlewareRouteEntry;

@@ -13,7 +13,21 @@ import {
   isZodSchema,
   evaluateRouteTarget,
 } from "~/schema/validator-adapter";
+import { coercePrimitive, coerceRecord } from "~/schema/coercion";
+import { defineRoute } from "~/router/define-route";
 import { RouteValidationError } from "~/types/route-definition";
+import type {
+  StandardSchemaV1,
+  ZodLikeSchema,
+  InferOutput,
+  InferInput,
+} from "~/types/type-validator";
+import type {
+  ExtractPathParams,
+  RouteParamsFor,
+  RouteSearchFor,
+  NavigationArgs,
+} from "~/types/route-inference";
 
 describe("Universal Validator Adapter", () => {
   it("detects Standard Schema and Zod schema type guards", () => {
@@ -196,6 +210,198 @@ describe("Universal Validator Adapter", () => {
 
       expect(error).toBeUndefined();
       expect(data).toBe(raw);
+    });
+
+    it("evaluates lazy context callback only when validation fails, skipping allocation on success", () => {
+      const schema = v.object({ id: v.number() });
+      const contextFactory = vi.fn(() => ({
+        rawParams: { id: "bad" },
+        rawSearch: { q: "search" },
+      }));
+
+      // Success path: contextFactory must NOT be called
+      const [validData, validErr] = evaluateRouteTarget<{ id: number }>(
+        "params",
+        schema,
+        { id: "123" },
+        contextFactory,
+      );
+      expect(validErr).toBeUndefined();
+      expect(validData).toEqual({ id: 123 });
+      expect(contextFactory).not.toHaveBeenCalled();
+
+      // Failure path: contextFactory MUST be called once
+      const [invalidData, invalidErr] = evaluateRouteTarget<{ id: number }>(
+        "params",
+        schema,
+        { id: "bad" },
+        contextFactory,
+      );
+      expect(invalidData).toBeUndefined();
+      expect(invalidErr).toBeInstanceOf(RouteValidationError);
+      expect(invalidErr?.rawSearch).toEqual({ q: "search" });
+      expect(contextFactory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Finite Coercion & Async Standard Schema Rejection", () => {
+    it("coerces finite numeric strings and booleans while keeping Infinity/-Infinity/whitespace as strings", () => {
+      expect(coercePrimitive("42")).toBe(42);
+      expect(coercePrimitive("-3.14")).toBe(-3.14);
+      expect(coercePrimitive("0")).toBe(0);
+      expect(coercePrimitive("true")).toBe(true);
+      expect(coercePrimitive("false")).toBe(false);
+
+      // Failure / boundary cases: non-finite numeric strings must NOT become Infinity or 0
+      expect(coercePrimitive("Infinity")).toBe("Infinity");
+      expect(coercePrimitive("-Infinity")).toBe("-Infinity");
+      expect(coercePrimitive("NaN")).toBe("NaN");
+      expect(coercePrimitive("")).toBe("");
+      expect(coercePrimitive("   ")).toBe("   ");
+
+      const coerced = coerceRecord({
+        limit: "Infinity",
+        offset: "10",
+      });
+      expect(coerced).toEqual({
+        limit: "Infinity",
+        offset: 10,
+      });
+
+      // Schema expecting a finite number must reject "Infinity"
+      const numSchema = v.object({ limit: v.number() });
+      const res = validateData(numSchema, { limit: "Infinity" });
+      expect(res.success).toBe(false);
+    });
+
+    it("rejects asynchronous Standard Schema validators instead of silently passing rawInput", () => {
+      const asyncDirectSchema: StandardSchemaV1<{ id: string }, { id: number }> = {
+        "~standard": {
+          version: 1,
+          vendor: "async-test",
+          validate: async (value) => ({
+            value: { id: Number((value as { id: string }).id) },
+          }),
+        },
+      };
+
+      const directRes = validateData(asyncDirectSchema, { id: "not-validated" });
+      expect(directRes.success).toBe(false);
+      if (!directRes.success) {
+        expect(directRes.issues[0].message).toContain(
+          "Asynchronous Standard Schema validators are not supported",
+        );
+      }
+
+      // Also test when first pass returns sync issues and second (coerced) pass returns a Promise
+      let callCount = 0;
+      const hybridAsyncSchema: StandardSchemaV1<{ id: number }, { id: number }> = {
+        "~standard": {
+          version: 1,
+          vendor: "hybrid-async-test",
+          validate: () => {
+            callCount++;
+            if (callCount === 1) {
+              return { issues: [{ message: "Initial sync failure" }] };
+            }
+            return Promise.resolve({ value: { id: 1 } });
+          },
+        },
+      };
+
+      const hybridRes = validateData(hybridAsyncSchema, { id: "42" });
+      expect(hybridRes.success).toBe(false);
+      if (!hybridRes.success) {
+        expect(hybridRes.issues[0].message).toContain(
+          "Asynchronous Standard Schema validators are not supported",
+        );
+      }
+    });
+  });
+
+  describe("Compile-Time & Runtime Route Type Inference", () => {
+    it("infers output types across StandardSchemaV1, ZodLikeSchema, and FunctionValidator in core defineRoute", () => {
+      const fnRoute = defineRoute({
+        params: (raw: { id: string }) => ({ id: Number(raw.id) }),
+        search: (raw: { page?: string }) => ({ page: Number(raw.page ?? 1) }),
+      });
+
+      const zodLikeValidator: ZodLikeSchema<{ slug: string }, { slug: string }> = {
+        safeParse: (val) => ({ success: true as const, data: val as { slug: string } }),
+      };
+
+      const zodRoute = defineRoute({
+        params: zodLikeValidator,
+      });
+
+      const valibotRoute = defineRoute({
+        params: v.object({ userId: v.number() }),
+        search: v.object({ active: v.boolean() }),
+      });
+
+      const manifest = [
+        {
+          path: "/fn/:id" as const,
+          $route: { require: () => ({ route: fnRoute }) },
+        },
+        {
+          path: "/zod/[slug]" as const,
+          $route: { require: () => ({ route: zodRoute }) },
+        },
+        {
+          path: "/valibot/:userId" as const,
+          $route: { require: () => ({ route: valibotRoute }) },
+        },
+        {
+          path: "/optional/:optId?" as const,
+        },
+        {
+          path: "/docs/[...rest]" as const,
+        },
+      ] as const;
+
+      type FnOutput = InferOutput<(raw: { a: string }) => { a: number }>;
+      type ZodOutput = InferOutput<typeof zodLikeValidator>;
+      type ZodInput = InferInput<typeof zodLikeValidator>;
+
+      const _fnOut: FnOutput = { a: 1 };
+      const _zodOut: ZodOutput = { slug: "hello" };
+      const _zodIn: ZodInput = { slug: "hello" };
+
+      type FnParams = RouteParamsFor<typeof manifest, "/fn/:id">;
+      type FnSearch = RouteSearchFor<typeof manifest, "/fn/:id">;
+      type ZodParams = RouteParamsFor<typeof manifest, "/zod/[slug]">;
+      type ValibotParams = RouteParamsFor<typeof manifest, "/valibot/:userId">;
+      type ValibotSearch = RouteSearchFor<typeof manifest, "/valibot/:userId">;
+      type OptParams = ExtractPathParams<"/optional/:optId?">;
+      type CatchAllParams = ExtractPathParams<"/docs/[...rest]">;
+
+      const _p1: FnParams = { id: 123 };
+      const _s1: FnSearch = { page: 2 };
+      const _p2: ZodParams = { slug: "post-1" };
+      const _p3: ValibotParams = { userId: 77 };
+      const _s3: ValibotSearch = { active: true };
+      const _pOptEmpty: OptParams = {};
+      const _pOptProvided: OptParams = { optId: 10 };
+      const _pCatchAll: CatchAllParams = { rest: "a/b/c" };
+
+      // NavigationArgs for optional-only route "/optional/:optId?" must allow omitting params
+      type OptNavArgs = NavigationArgs<OptParams, { q?: string }, unknown>;
+      const _navWithoutParams: OptNavArgs = { search: { q: "test" } };
+      const _navWithParams: OptNavArgs = { params: { optId: 5 } };
+
+      expect(_fnOut.a).toBe(1);
+      expect(_zodOut.slug).toBe(_zodIn.slug);
+      expect(_p1.id).toBe(123);
+      expect(_s1.page).toBe(2);
+      expect(_p2.slug).toBe("post-1");
+      expect(_p3.userId).toBe(77);
+      expect(_s3.active).toBe(true);
+      expect(_pOptEmpty).toEqual({});
+      expect(_pOptProvided.optId).toBe(10);
+      expect(_pCatchAll.rest).toBe("a/b/c");
+      expect(_navWithoutParams.search?.q).toBe("test");
+      expect(_navWithParams.params?.optId).toBe(5);
     });
   });
 });

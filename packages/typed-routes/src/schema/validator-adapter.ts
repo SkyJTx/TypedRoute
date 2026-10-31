@@ -38,6 +38,14 @@ export class ValidationOutcome<T> {
     this.data = data;
     this.issues = issues;
   }
+
+  public static ok<T>(data: T): ValidationResult<T> {
+    return new ValidationOutcome<T>(true, data, undefined) as ValidationResult<T>;
+  }
+
+  public static fail<T>(issues: ReadonlyArray<ValidationIssue>): ValidationResult<T> {
+    return new ValidationOutcome<T>(false, undefined, issues) as ValidationResult<T>;
+  }
 }
 
 export type CompiledValidator<T = unknown> = (rawInput: unknown) => ValidationResult<T>;
@@ -140,78 +148,71 @@ export function compileValidator<T>(validator: TypeValidator<T>): CompiledValida
     const standardValidate = validator["~standard"].validate;
     compiled = function validateStandardSchema(rawInput: unknown): ValidationResult<T> {
       const direct = standardValidate(rawInput);
-      if (!(direct instanceof Promise)) {
-        if (!direct.issues) {
-          return new ValidationOutcome<T>(true, direct.value as T, undefined) as unknown as ValidationResult<T>;
-        }
-        if (typeof rawInput === "object" && rawInput !== null) {
-          const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
-          const coercedResult = standardValidate(coercedInput);
-          if (!(coercedResult instanceof Promise) && !coercedResult.issues) {
-            return new ValidationOutcome<T>(
-              true,
-              coercedResult.value as T,
-              undefined,
-            ) as unknown as ValidationResult<T>;
-          }
-        }
-        return new ValidationOutcome<T>(
-          false,
-          undefined,
-          formatStandardIssues(direct.issues),
-        ) as unknown as ValidationResult<T>;
+      if (direct instanceof Promise) {
+        return ValidationOutcome.fail<T>([
+          {
+            message:
+              "Asynchronous Standard Schema validators are not supported in synchronous route validation.",
+          },
+        ]);
       }
-      return new ValidationOutcome<T>(true, rawInput as T, undefined) as unknown as ValidationResult<T>;
+      if (!direct.issues) {
+        return ValidationOutcome.ok<T>(direct.value as T);
+      }
+      if (typeof rawInput === "object" && rawInput !== null) {
+        const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
+        const coercedResult = standardValidate(coercedInput);
+        if (coercedResult instanceof Promise) {
+          return ValidationOutcome.fail<T>([
+            {
+              message:
+                "Asynchronous Standard Schema validators are not supported in synchronous route validation.",
+            },
+          ]);
+        }
+        if (!coercedResult.issues) {
+          return ValidationOutcome.ok<T>(coercedResult.value as T);
+        }
+      }
+      return ValidationOutcome.fail<T>(formatStandardIssues(direct.issues));
     };
   } else if (isZodSchema(validator)) {
     compiled = function validateZodSchema(rawInput: unknown): ValidationResult<T> {
       const direct = validator.safeParse(rawInput);
       if (direct.success) {
-        return new ValidationOutcome<T>(true, direct.data as T, undefined) as unknown as ValidationResult<T>;
+        return ValidationOutcome.ok<T>(direct.data as T);
       }
       if (typeof rawInput === "object" && rawInput !== null) {
         const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
         const coercedResult = validator.safeParse(coercedInput);
         if (coercedResult.success) {
-          return new ValidationOutcome<T>(
-            true,
-            coercedResult.data as T,
-            undefined,
-          ) as unknown as ValidationResult<T>;
+          return ValidationOutcome.ok<T>(coercedResult.data as T);
         }
       }
-      return new ValidationOutcome<T>(
-        false,
-        undefined,
-        extractIssues(direct.error),
-      ) as unknown as ValidationResult<T>;
+      return ValidationOutcome.fail<T>(extractIssues(direct.error));
     };
   } else if (typeof validator === "function") {
     const fnValidator = validator as FunctionValidator<T>;
     compiled = function validateFunctionParser(rawInput: unknown): ValidationResult<T> {
       try {
         const result = fnValidator(rawInput as never);
-        return new ValidationOutcome<T>(true, result, undefined) as unknown as ValidationResult<T>;
+        return ValidationOutcome.ok<T>(result);
       } catch (err) {
         if (typeof rawInput === "object" && rawInput !== null) {
           try {
             const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
             const coercedResult = fnValidator(coercedInput as never);
-            return new ValidationOutcome<T>(true, coercedResult, undefined) as unknown as ValidationResult<T>;
+            return ValidationOutcome.ok<T>(coercedResult);
           } catch {
             // Fall through to report initial error
           }
         }
-        return new ValidationOutcome<T>(
-          false,
-          undefined,
-          extractIssues(err),
-        ) as unknown as ValidationResult<T>;
+        return ValidationOutcome.fail<T>(extractIssues(err));
       }
     };
   } else {
     compiled = function validatePassthrough(rawInput: unknown): ValidationResult<T> {
-      return new ValidationOutcome<T>(true, rawInput as T, undefined) as unknown as ValidationResult<T>;
+      return ValidationOutcome.ok<T>(rawInput as T);
     };
   }
 
@@ -230,7 +231,7 @@ export function validateData<T>(
   rawInput: unknown,
 ): ValidationResult<T> {
   if (!validator) {
-    return new ValidationOutcome<T>(true, rawInput as T, undefined) as unknown as ValidationResult<T>;
+    return ValidationOutcome.ok<T>(rawInput as T);
   }
   const runValidator = compileValidator(validator);
   return runValidator(rawInput);
@@ -244,10 +245,15 @@ export function evaluateRouteTarget<T>(
   target: "params" | "search" | "state" | "hash",
   schema: TypeValidator<T, unknown> | undefined,
   rawInput: unknown,
-  context: {
-    rawParams: Record<string, string | undefined>;
-    rawSearch: Record<string, unknown>;
-  },
+  context:
+    | {
+        rawParams: Record<string, string | undefined>;
+        rawSearch: Record<string, unknown>;
+      }
+    | (() => {
+        rawParams: Record<string, string | undefined>;
+        rawSearch: Record<string, unknown>;
+      }),
   onError?: (args: {
     error: RouteValidationError;
     rawParams: Record<string, string | undefined>;
@@ -261,12 +267,13 @@ export function evaluateRouteTarget<T>(
   if (res.success) {
     return [res.data, undefined];
   }
-  const error = new RouteValidationError(target, res.issues ?? [], context);
+  const resolvedContext = typeof context === "function" ? context() : context;
+  const error = new RouteValidationError(target, res.issues ?? [], resolvedContext);
   if (onError) {
     onError({
       error,
-      rawParams: context.rawParams,
-      rawSearch: context.rawSearch,
+      rawParams: resolvedContext.rawParams,
+      rawSearch: resolvedContext.rawSearch,
     });
   }
   return [undefined, error];

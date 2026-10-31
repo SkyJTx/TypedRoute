@@ -19,9 +19,6 @@ import { parseFastUrl, type ParsedUrl } from "./url-scanner";
 import { RouteNodeMeta, resolveRouteConfig } from "./route-meta";
 import {
   buildMatcherAndMetadata,
-  httpHandlerKeys,
-  toApiHandlerRef,
-  toRadixPath,
   type HttpMethod,
   type HttpMethodKey,
 } from "./route-matcher";
@@ -30,11 +27,6 @@ export {
   type ParsedUrl,
   parseFastUrl,
   RouteNodeMeta,
-  resolveRouteConfig,
-  buildMatcherAndMetadata,
-  httpHandlerKeys,
-  toApiHandlerRef,
-  toRadixPath,
   type HttpMethod,
   type HttpMethodKey,
 };

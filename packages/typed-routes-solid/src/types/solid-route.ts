@@ -47,13 +47,9 @@ export interface SolidRouteConfig<
 export interface RouteValidationContextValue<
   TParams = unknown,
   TSearch = unknown,
-  TState = unknown,
-  THash = unknown,
 > {
   params: RouteAccessorTuple<TParams>;
   search: RouteAccessorTuple<TSearch>;
-  state: Accessor<TState | undefined>;
-  hash: Accessor<THash | undefined>;
 }
 
 /**

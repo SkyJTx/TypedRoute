@@ -1,5 +1,18 @@
 # @skyjt/typed-routes
 
+## 0.6.3
+
+### Patch Changes
+
+- Native `Map` FIFO builder cache, single-param URL builder specialization, zero-escape URL scanner fast-path, and validator hardening:
+  
+  - **Bounded Native `Map` FIFO Builder Cache**: Replaced `LruCache` wrapper and per-hit doubly-linked list pointer mutations in `buildUrl` with a bounded native `Map` (`MAX_BUILDER_CACHE_SIZE = 2048`) using O(1) FIFO eviction (`builderCache.keys().next().value`), achieving `595 ps/iter` (`55.1M ops/sec`) static URL construction and removing internal `LruCache` / `LruNode` exports.
+  - **Single-Parameter Builder Specialization & IEEE-754 Numeric Fast-Path**: Added specialized `buildSingleRequiredParamUrl` closure compilation in `compilePathBuilder` and an IEEE-754 finite range check (`val > -1e21 && val < 1e21`) in `encodeFastComponent`, accelerating single-parameter dynamic URL construction to `30.40 ns/iter` (`21.01M ops/sec`) while throwing `RangeError` on non-finite numbers (`NaN`, `Infinity`, `-Infinity`) and percent-encoding `'+'` in scientific notation (`1e21` -> `"1e%2B21"`).
+  - **Zero-Escape `parseFastUrl` Sanitization Fast-Path**: Moved protocol-relative (`//`) and native SIMD backslash (`urlStr.indexOf("\\", pathStart)`) checks in `parseFastUrl` directly onto `urlStr` prior to substring consumption, restoring JIT Escape Analysis (`73.45 ns/iter`, `4.15 B/iter`) while preserving full open-redirect and internal backslash neutralization.
+  - **Validator & Coercion Hardening**: Updated `isNumericString` to require `Number.isFinite(num)` so `"Infinity"` and `"-Infinity"` are preserved as strings, rejected asynchronous `StandardSchemaV1` Promises with a deterministic validation issue, added `ValidationOutcome.ok` / `ValidationOutcome.fail` static factories, and added lazy error context callback support (`() => ({ rawParams, rawSearch })`) in `evaluateRouteTarget` to avoid allocating context objects on the happy path.
+  - **Path Parameter Type Inference & API Cleanup**: Refined `ExtractSegmentsParams`, `RouteParamsFor`, `RouteSearchFor`, `NavigationArgs`, `InferOutput`, and `InferInput` to accurately infer optional `:param?`, `[...catchAll]`, and `[bracket]` segments, and removed unused `SchemaValidationError`.
+  - **5-Way Version Benchmark Suite**: Added published `v0.6.2` to `@benchmarks/version-comparison` (`v0.1.1` vs `v0.4.0` vs `v0.6.1` vs `v0.6.2` vs `Current`).
+
 ## 0.6.2
 
 ### Patch Changes

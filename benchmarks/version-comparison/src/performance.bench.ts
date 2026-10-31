@@ -5,7 +5,7 @@
  */
 
 import { bench, group, summary } from "mitata";
-import { current, v011, v040, v061 } from "./targets";
+import { current, v011, v040, v061, v062 } from "./targets";
 import { fixtures, createMockRoutes } from "./fixtures";
 import { forceGc } from "./memory.bench";
 
@@ -31,6 +31,10 @@ export function registerPerformanceBenchmarks() {
         v061.defineRoute(sharedRouteConfig);
       });
 
+      bench("Published v0.6.2 defineRoute", () => {
+        v062.defineRoute(sharedRouteConfig);
+      });
+
       bench("Current defineRoute (Prototype Shared)", () => {
         current.defineRoute(sharedRouteConfig);
       });
@@ -53,6 +57,10 @@ export function registerPerformanceBenchmarks() {
         v061.buildUrl(fixtures.static.pattern);
       });
 
+      bench("Published v0.6.2 buildUrl", () => {
+        v062.buildUrl(fixtures.static.pattern);
+      });
+
       bench("Current buildUrl", () => {
         current.buildUrl(fixtures.static.pattern);
       });
@@ -73,6 +81,10 @@ export function registerPerformanceBenchmarks() {
 
       bench("Published v0.6.1 buildUrl", () => {
         v061.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params });
+      });
+
+      bench("Published v0.6.2 buildUrl", () => {
+        v062.buildUrl(fixtures.singleParam.pattern, { params: fixtures.singleParam.params });
       });
 
       bench("Current buildUrl", () => {
@@ -109,6 +121,14 @@ export function registerPerformanceBenchmarks() {
         });
       });
 
+      bench("Published v0.6.2 buildUrl", () => {
+        v062.buildUrl(fixtures.complex.pattern, {
+          params: fixtures.complex.params,
+          search: fixtures.complex.search,
+          hash: fixtures.complex.hash,
+        });
+      });
+
       bench("Current buildUrl", () => {
         current.buildUrl(fixtures.complex.pattern, {
           params: fixtures.complex.params,
@@ -136,6 +156,10 @@ export function registerPerformanceBenchmarks() {
         v061.parseFastUrl(fixtures.urls.full);
       });
 
+      bench("Published v0.6.2 parseFastUrl", () => {
+        v062.parseFastUrl(fixtures.urls.full);
+      });
+
       bench("Current parseFastUrl (Monomorphic ParsedUrl)", () => {
         current.parseFastUrl(fixtures.urls.full);
       });
@@ -158,6 +182,10 @@ export function registerPerformanceBenchmarks() {
         v061.normalizeSearchParams(fixtures.urls.query);
       });
 
+      bench("Published v0.6.2 normalizeSearchParams", () => {
+        v062.normalizeSearchParams(fixtures.urls.query);
+      });
+
       bench("Current normalizeSearchParams", () => {
         current.normalizeSearchParams(fixtures.urls.query);
       });
@@ -174,6 +202,9 @@ export function registerPerformanceBenchmarks() {
   const routesV061 = createMockRoutes(
     v061.defineRoute as unknown as Parameters<typeof createMockRoutes>[0],
   );
+  const routesV062 = createMockRoutes(
+    v062.defineRoute as unknown as Parameters<typeof createMockRoutes>[0],
+  );
   const routesCur = createMockRoutes(
     current.defineRoute as unknown as Parameters<typeof createMockRoutes>[0],
   );
@@ -183,6 +214,7 @@ export function registerPerformanceBenchmarks() {
   );
   const v040Middleware = v040.createMiddleware(routesV040);
   const v061Middleware = v061.createMiddleware(routesV061);
+  const v062Middleware = v062.createMiddleware(routesV062);
   const currentMiddleware = current.createMiddleware(routesCur);
   const dummyNext = async () => new Response("fallback");
 
@@ -199,6 +231,10 @@ export function registerPerformanceBenchmarks() {
 
       bench("Published v0.6.1 createMiddleware", async () => {
         await v061Middleware(fixtures.urls.request, dummyNext);
+      });
+
+      bench("Published v0.6.2 createMiddleware", async () => {
+        await v062Middleware(fixtures.urls.request, dummyNext);
       });
 
       bench("Current createMiddleware", async () => {

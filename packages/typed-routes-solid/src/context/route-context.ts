@@ -8,15 +8,15 @@ import {
   createContext,
   createComponent,
   createMemo,
+  untrack,
   useContext,
   type ParentProps,
 } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import { useParams, useLocation, useSearchParams } from "@solidjs/router";
+import { useParams, useSearchParams } from "@solidjs/router";
 import {
   RouteValidationError,
   evaluateRouteTarget,
-  validateData,
   normalizeSearchParams,
   type RouteValidationTuple,
 } from "@skyjt/typed-routes";
@@ -27,25 +27,28 @@ import type {
 } from "~/types/solid-route";
 
 const RouteValidationContext = createContext<
-  RouteValidationContextValue<unknown, unknown, unknown, unknown> | null
+  RouteValidationContextValue<unknown, unknown> | null
 >(null, {
   name: "RouteValidationContext",
 });
 
 /**
- * Creates a fine-grained [dataAccessor, errorAccessor] tuple from a validation tuple memo.
+ * Creates a fine-grained [dataAccessor, errorAccessor] tuple from a lazy validation tuple memo.
  */
 export function createRouteAccessorTuple<T>(
   computeTuple: () => RouteValidationTuple<T>,
 ): RouteAccessorTuple<T> {
-  const tupleMemo = createMemo(computeTuple);
-  const data = createMemo<T | undefined>(function readValidatedData() {
+  const tupleMemo = createMemo(computeTuple, { lazy: true });
+  const readValidatedData = (): T | undefined => {
     return tupleMemo()[0];
-  });
-  const error = createMemo<RouteValidationError | undefined>(function readValidationError() {
-    return tupleMemo()[1];
-  });
-  return [data, error] as const;
+  };
+  const errorMemo = createMemo<RouteValidationError | undefined>(
+    function readValidationError() {
+      return tupleMemo()[1];
+    },
+    { lazy: true },
+  );
+  return [readValidatedData, errorMemo] as const;
 }
 
 /**
@@ -58,56 +61,45 @@ export function RouteValidationProvider<TParams, TSearch, TState, THash, TData>(
 ): JSX.Element {
   const rawParams = useParams();
   const [searchParams] = useSearchParams();
-  const location = useLocation();
 
   const params = createRouteAccessorTuple<TParams>(() => {
     const rawParamsSnapshot: Record<string, string | undefined> = { ...rawParams };
-    const normalizedSearch = normalizeSearchParams(searchParams);
     return evaluateRouteTarget<TParams>(
       "params",
       props.config?.params,
       rawParamsSnapshot,
-      { rawParams: rawParamsSnapshot, rawSearch: normalizedSearch },
+      () => ({
+        rawParams: rawParamsSnapshot,
+        rawSearch: untrack(() => normalizeSearchParams(searchParams)),
+      }),
       props.config?.onError,
     );
   });
 
   const search = createRouteAccessorTuple<TSearch>(() => {
-    const rawParamsSnapshot: Record<string, string | undefined> = { ...rawParams };
     const normalizedSearch = normalizeSearchParams(searchParams);
     return evaluateRouteTarget<TSearch>(
       "search",
       props.config?.search,
       normalizedSearch,
-      { rawParams: rawParamsSnapshot, rawSearch: normalizedSearch },
+      () => ({
+        rawParams: untrack(() => ({ ...rawParams })),
+        rawSearch: normalizedSearch,
+      }),
       props.config?.onError,
     );
   });
 
-  const state = createMemo<TState | undefined>(() => {
-    if (!props.config?.state) {
-      return location.state as TState | undefined;
-    }
-    const res = validateData<TState>(props.config.state, location.state);
-    return res.data;
-  });
-
-  const hash = createMemo<THash | undefined>(() => {
-    if (!props.config?.hash) {
-      return location.hash as unknown as THash | undefined;
-    }
-    const res = validateData<THash>(props.config.hash, location.hash);
-    return res.data;
-  });
-
-  const contextValue: RouteValidationContextValue<TParams, TSearch, TState, THash> = {
+  const contextValue: RouteValidationContextValue<TParams, TSearch> = {
     params,
     search,
-    state,
-    hash,
   };
 
-  return createComponent(RouteValidationContext, {
+  const Provider =
+    (RouteValidationContext as { Provider?: typeof RouteValidationContext }).Provider ??
+    RouteValidationContext;
+
+  return createComponent(Provider, {
     value: contextValue,
     get children() {
       return props.children;
@@ -121,9 +113,7 @@ export function RouteValidationProvider<TParams, TSearch, TState, THash, TData>(
 export function useRouteValidationContext<
   TParams = unknown,
   TSearch = unknown,
-  TState = unknown,
-  THash = unknown,
->(): RouteValidationContextValue<TParams, TSearch, TState, THash> | undefined {
+>(): RouteValidationContextValue<TParams, TSearch> | undefined {
   const ctx = useContext(RouteValidationContext);
-  return (ctx ?? undefined) as RouteValidationContextValue<TParams, TSearch, TState, THash> | undefined;
+  return (ctx ?? undefined) as RouteValidationContextValue<TParams, TSearch> | undefined;
 }

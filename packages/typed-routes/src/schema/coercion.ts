@@ -36,7 +36,7 @@ function isNumericString(value: string): boolean {
     return false;
   }
   const num = Number(value);
-  return !Number.isNaN(num);
+  return Number.isFinite(num);
 }
 
 /**

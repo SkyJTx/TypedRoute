@@ -8,5 +8,6 @@ import * as current from "@skyjt/typed-routes";
 import * as v011 from "@skyjt/typed-routes-v0.1.1";
 import * as v040 from "@skyjt/typed-routes-v0.4.0";
 import * as v061 from "@skyjt/typed-routes-v0.6.1";
+import * as v062 from "@skyjt/typed-routes-v0.6.2";
 
-export { current, v011, v040, v061 };
+export { current, v011, v040, v061, v062 };

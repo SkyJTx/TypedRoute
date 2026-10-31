@@ -66,8 +66,10 @@ export type InferOutput<T> =
     ? O
     : T extends StandardSchemaV1<unknown, infer O>
       ? O
-      : T extends { _output: infer O }
-        ? O
+      : "_output" extends keyof T
+        ? T extends { readonly _output?: infer O }
+          ? O
+          : unknown
         : T extends (...args: never[]) => infer O
           ? O
           : unknown;
@@ -80,8 +82,10 @@ export type InferInput<T> =
     ? I
     : T extends StandardSchemaV1<infer I, unknown>
       ? I
-      : T extends { _input: infer I }
-        ? I
+      : "_input" extends keyof T
+        ? T extends { readonly _input?: infer I }
+          ? I
+          : unknown
         : unknown;
 
 /**
@@ -106,16 +110,3 @@ export type ValidationResult<T> =
       readonly data?: never;
       readonly issues: ReadonlyArray<ValidationIssue>;
     };
-
-/**
- * Error thrown when schema validation encounters issues during parse operations.
- */
-export class SchemaValidationError extends Error {
-  public readonly issues: ReadonlyArray<ValidationIssue>;
-
-  public constructor(issues: ReadonlyArray<ValidationIssue>) {
-    super(`Validation failed: ${issues.map((i) => i.message).join("; ")}`);
-    this.name = "SchemaValidationError";
-    this.issues = issues;
-  }
-}
