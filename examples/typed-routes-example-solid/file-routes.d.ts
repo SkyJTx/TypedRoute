@@ -78,6 +78,13 @@ declare module "virtual:file-routes" {
       $HEAD: FileRouteLazyRef<typeof import("./src/routes/api/health")>;
     },
     {
+      path: "/api/test";
+      page: false;
+      $$route: FileRouteEagerRef<typeof import("./src/routes/api/test")>;
+      $GET: FileRouteLazyRef<typeof import("./src/routes/api/test")>;
+      $HEAD: FileRouteLazyRef<typeof import("./src/routes/api/test")>;
+    },
+    {
       path: "/api/users/:id";
       page: false;
       $$route: FileRouteEagerRef<typeof import("./src/routes/api/users/[id]")>;

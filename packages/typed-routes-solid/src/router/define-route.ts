@@ -12,6 +12,11 @@ import {
   evaluateRouteTarget,
   inspectRoute,
   normalizeSearchParams,
+  registerAPIHandler,
+  type APIHandlerConfig,
+  type APIMiddleware,
+  type ConfiguredAPIHandler,
+  type MergeMiddlewareContext,
   type RouteDebugSummary,
   type RouteValidationTuple,
   type TypeValidator,
@@ -28,25 +33,30 @@ import {
   useRouteValidationContext,
 } from "~/context/route-context";
 
-/**
- * Monomorphic prototype-shared SolidJS route definition class.
- *
- * Memory Layout:
- * - Stores a single in-object property (`config`), occupying 16 bytes in V8 and 24 bytes in JavaScriptCore.
- * - Shares `useParams`, `useSearch`, `useLocation`, `handler`, `toString`, and
- *   `[CUSTOM_INSPECT_SYMBOL]` on `SolidDefinedRoute.prototype`, eliminating per-route closure
- *   allocations.
- */
 export class SolidDefinedRoute<
   TParams = unknown,
   TSearch = unknown,
   TState = unknown,
   THash = unknown,
   TData = unknown,
-> implements DefinedRouteObject<TParams, TSearch, TState, THash, TData> {
-  public readonly config: SolidRouteConfig<TParams, TSearch, TState, THash, TData>;
+  THeaders = undefined,
+  TCookies = undefined,
+> implements
+    DefinedRouteObject<TParams, TSearch, TState, THash, TData, THeaders, TCookies>
+{
+  public readonly config: SolidRouteConfig<
+    TParams,
+    TSearch,
+    TState,
+    THash,
+    TData,
+    THeaders,
+    TCookies
+  >;
 
-  public constructor(config: SolidRouteConfig<TParams, TSearch, TState, THash, TData>) {
+  public constructor(
+    config: SolidRouteConfig<TParams, TSearch, TState, THash, TData, THeaders, TCookies>,
+  ) {
     this.config = config;
   }
 
@@ -95,9 +105,58 @@ export class SolidDefinedRoute<
   }
 
   public handler<TResult = unknown>(
-    fn: TypedAPIHandler<TParams, TSearch, TResult>,
-  ): TypedAPIHandler<TParams, TSearch, TResult> {
-    return fn;
+    fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
+  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  public handler<
+    B extends TypeValidator<unknown, unknown> | undefined = undefined,
+    H extends TypeValidator<unknown, unknown> | undefined = undefined,
+    C extends TypeValidator<unknown, unknown> | undefined = undefined,
+    S extends TypeValidator<unknown, unknown> | undefined = undefined,
+    const M extends readonly APIMiddleware[] | undefined = undefined,
+    R extends Record<number, TypeValidator<unknown, unknown>> | undefined = undefined,
+    TResult = unknown,
+  >(
+    config: APIHandlerConfig<B, H, C, S, M, R>,
+    fn: TypedAPIHandler<
+      TParams,
+      S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
+      TResult,
+      InferOutput<B>,
+      H extends TypeValidator<unknown, unknown>
+        ? InferOutput<H>
+        : [THeaders] extends [undefined]
+          ? Record<string, string | undefined>
+          : THeaders,
+      C extends TypeValidator<unknown, unknown>
+        ? InferOutput<C>
+        : [TCookies] extends [undefined]
+          ? Record<string, string | undefined>
+          : TCookies,
+      MergeMiddlewareContext<M>
+    >,
+  ): ConfiguredAPIHandler<
+    TParams,
+    S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
+    TResult,
+    InferOutput<B>,
+    H extends TypeValidator<unknown, unknown>
+      ? InferOutput<H>
+      : [THeaders] extends [undefined]
+        ? Record<string, string | undefined>
+        : THeaders,
+    C extends TypeValidator<unknown, unknown>
+      ? InferOutput<C>
+      : [TCookies] extends [undefined]
+        ? Record<string, string | undefined>
+        : TCookies,
+    MergeMiddlewareContext<M>,
+    R
+  >;
+  public handler(configOrFn: unknown, maybeFn?: unknown): unknown {
+    if (typeof configOrFn === "function") {
+      return configOrFn;
+    }
+    return registerAPIHandler(configOrFn as APIHandlerConfig, maybeFn);
   }
 
   public toString(): string {
@@ -115,20 +174,22 @@ export class SolidDefinedRoute<
   }
 }
 
-/**
- * Defines route parameter, search, state, and hash validation schemas with reactive SolidJS hooks and API handler helper.
- */
 export function defineRoute<
   P extends TypeValidator<unknown, unknown> | undefined = undefined,
   S extends TypeValidator<unknown, unknown> | undefined = undefined,
   St extends TypeValidator<unknown, unknown> | undefined = undefined,
   H extends TypeValidator<unknown, unknown> | undefined = undefined,
   D = unknown,
+  Hd extends TypeValidator<unknown, unknown> | undefined = undefined,
+  Ck extends TypeValidator<unknown, unknown> | undefined = undefined,
 >(config: {
   params?: P;
   search?: S;
   state?: St;
   hash?: H;
+  headers?: Hd;
+  cookies?: Ck;
+  use?: readonly APIMiddleware[];
   preload?: (args: {
     params: RouteValidationTuple<InferOutput<P>>;
     search: RouteValidationTuple<InferOutput<S>>;
@@ -140,19 +201,31 @@ export function defineRoute<
     rawSearch: Record<string, unknown>;
   }) => void;
   info?: Record<string, unknown>;
-}): DefinedRouteObject<InferOutput<P>, InferOutput<S>, InferOutput<St>, InferOutput<H>, D> {
+}): DefinedRouteObject<
+  InferOutput<P>,
+  InferOutput<S>,
+  InferOutput<St>,
+  InferOutput<H>,
+  D,
+  Hd extends TypeValidator<unknown, unknown> ? InferOutput<Hd> : undefined,
+  Ck extends TypeValidator<unknown, unknown> ? InferOutput<Ck> : undefined
+> {
   type TParams = InferOutput<P>;
   type TSearch = InferOutput<S>;
   type TState = InferOutput<St>;
   type THash = InferOutput<H>;
+  type THeaders = Hd extends TypeValidator<unknown, unknown> ? InferOutput<Hd> : undefined;
+  type TCookies = Ck extends TypeValidator<unknown, unknown> ? InferOutput<Ck> : undefined;
 
   const routeConfig = config as unknown as SolidRouteConfig<
     TParams,
     TSearch,
     TState,
     THash,
-    D
+    D,
+    THeaders,
+    TCookies
   >;
 
-  return new SolidDefinedRoute<TParams, TSearch, TState, THash, D>(routeConfig);
+  return new SolidDefinedRoute<TParams, TSearch, TState, THash, D, THeaders, TCookies>(routeConfig);
 }

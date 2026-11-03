@@ -4,7 +4,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { InferOutput } from "./type-validator";
+import type { InferOutput, TypeValidator } from "./type-validator";
+import type { ConfiguredAPIHandler, TypedAPIEvent } from "./route-definition";
+import type { TypedResponse } from "~/router/api-response";
 
 /**
  * Normalizes leading and trailing slashes for route path matching.
@@ -139,3 +141,113 @@ export type NavigationArgs<TParams, TSearch, TState> =
     replace?: boolean;
     scroll?: boolean;
   };
+
+/**
+ * Infers the validated request input shape (`params`, `search`, `body`, `headers`, `cookies`)
+ * expected by a `route.handler(...)` export.
+ */
+export type InferHandlerInput<THandler> =
+  THandler extends {
+    readonly _rpcMeta?: {
+      readonly params: infer TParams;
+      readonly search: infer TSearch;
+      readonly body: infer TBody;
+      readonly headers: infer THeaders;
+      readonly cookies: infer TCookies;
+    };
+  }
+    ? Simplify<{
+        params: TParams;
+        search: TSearch;
+        body: TBody;
+        headers: THeaders;
+        cookies: TCookies;
+      }>
+    : THandler extends (
+          event: TypedAPIEvent<
+            infer TParams,
+            infer TSearch,
+            infer TBody,
+            infer THeaders,
+            infer TCookies,
+            Record<string, unknown>
+          >,
+        ) => unknown
+      ? Simplify<{
+          params: TParams;
+          search: TSearch;
+          body: TBody;
+          headers: THeaders;
+          cookies: TCookies;
+        }>
+      : never;
+
+type UnwrapHandlerResult<TResult> =
+  Awaited<TResult> extends infer R
+    ? R extends TypedResponse<infer TData, infer TStatus>
+      ? { status: TStatus; data: TData }
+      : R extends Response
+        ? { status: number; data: unknown }
+        : { status: 200; data: R }
+    : never;
+
+type InferDeclaredResponseUnion<TResponses> =
+  TResponses extends Record<number, TypeValidator<unknown, unknown>>
+    ? {
+        [K in keyof TResponses & number]: {
+          status: K;
+          data: InferOutput<TResponses[K]>;
+        };
+      }[keyof TResponses & number]
+    : never;
+
+/**
+ * Infers the discriminated `{ status, data }` response union produced by a `route.handler(...)` export.
+ */
+export type InferHandlerOutput<THandler> =
+  THandler extends ConfiguredAPIHandler<
+    unknown,
+    unknown,
+    infer TResult,
+    unknown,
+    unknown,
+    unknown,
+    Record<string, unknown>,
+    infer TResponses
+  >
+    ? [TResponses] extends [Record<number, TypeValidator<unknown, unknown>>]
+      ? UnwrapHandlerResult<TResult> | InferDeclaredResponseUnion<TResponses>
+      : UnwrapHandlerResult<TResult>
+    : THandler extends (...args: never[]) => infer TResult
+      ? UnwrapHandlerResult<TResult>
+      : never;
+
+/**
+ * Extracts the response payload data type for a handler (optionally narrowed by HTTP status code).
+ */
+export type InferHandlerData<
+  THandler,
+  TStatus extends number = InferHandlerOutput<THandler>["status"],
+> = Extract<InferHandlerOutput<THandler>, { status: TStatus }>["data"];
+
+/**
+ * Resolves the exported API handler function for a given route path and HTTP method from a route manifest.
+ */
+export type RouteMethodHandlerFor<
+  TManifest extends readonly unknown[],
+  Path extends string,
+  Method extends "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "QUERY",
+> =
+  FindRouteEntry<TManifest, Path> extends infer Entry
+    ? Entry extends Record<`$${Method}`, infer Ref>
+      ? Ref extends { require(): infer Mod }
+        ? Mod extends Record<Method, infer Fn>
+          ? Fn
+          : never
+        : Ref extends { import(): Promise<infer Mod> }
+          ? Mod extends Record<Method, infer Fn>
+            ? Fn
+            : never
+          : never
+      : never
+    : never;

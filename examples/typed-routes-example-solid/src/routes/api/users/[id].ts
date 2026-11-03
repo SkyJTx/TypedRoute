@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { defineRoute } from "@skyjt/typed-routes-solid";
+import { defineRoute, HttpError, json } from "@skyjt/typed-routes-solid";
 import { usersStore } from "~/services/db";
 
 export const route = defineRoute({
@@ -13,10 +13,10 @@ export const GET = route.handler(async (event) => {
   const user = usersStore.find((u) => u.id === userId);
 
   if (!user) {
-    return Response.json({ success: false, error: "User not found" }, { status: 404 });
+    throw HttpError.notFound("User not found");
   }
 
-  return Response.json({ success: true, user });
+  return json({ success: true, user });
 });
 
 export const DELETE = route.handler(async (event) => {
@@ -24,9 +24,9 @@ export const DELETE = route.handler(async (event) => {
   const index = usersStore.findIndex((u) => u.id === userId);
 
   if (index === -1) {
-    return Response.json({ success: false, error: "User not found" }, { status: 404 });
+    throw HttpError.notFound("User not found");
   }
 
   const [removed] = usersStore.splice(index, 1);
-  return Response.json({ success: true, removed });
+  return json({ success: true, removed });
 });

@@ -1,6 +1,6 @@
 # `@skyjt/typed-routes-solid`
 
-> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive parameter validation, reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), preloading, API request middleware, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), preloading, method-scoped API handlers (`body`, `headers`, `cookies`, `use`, `responses`), `json` / `HttpError` utilities, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -14,7 +14,7 @@ See the full [TypedRoute Documentation](../../docs/index.md):
 - [Defining Routes](../../docs/02-routing/01-defining-routes.md)
 - [Linking and Navigating](../../docs/02-routing/02-linking-and-navigating.md)
 - [Error Handling (`RouteAccessorTuple` & `[data, error]`)](../../docs/02-routing/03-error-handling.md)
-- [Route Handlers and Middleware (`route.handler` & `isPage`)](../../docs/02-routing/04-route-handlers-and-middleware.md)
+- [Route Handlers and Middleware (`route.handler`, `use`, `HttpError`, & `isPage`)](../../docs/02-routing/04-route-handlers-and-middleware.md)
 - [API Reference: `<Link>`](../../docs/03-api-reference/01-components/link.md)
 - [API Reference: `defineRoute`](../../docs/03-api-reference/03-functions/define-route.md)
 - [API Reference: `createMiddleware`](../../docs/03-api-reference/03-functions/create-middleware.md)
@@ -83,14 +83,46 @@ export default function UserDetailPage() {
 }
 ```
 
-### 3. Server Middleware (`src/middleware.ts`)
+### 3. Typed API Route Handler (`src/routes/api/users/index.ts`)
+
+```ts
+import * as v from "valibot";
+import { defineRoute, HttpError, json } from "@skyjt/typed-routes-solid";
+
+export const route = defineRoute({
+  search: v.object({
+    limit: v.optional(v.number(), 20),
+  }),
+});
+
+export const GET = route.handler(async (event) => {
+  return json({ limit: event.search.limit, users: [] });
+});
+
+export const POST = route.handler(
+  {
+    body: v.object({
+      name: v.pipe(v.string(), v.nonEmpty()),
+      email: v.pipe(v.string(), v.email()),
+    }),
+  },
+  async (event) => {
+    if (event.body.email.endsWith("@blocked.test")) {
+      throw HttpError.forbidden("Domain is restricted");
+    }
+    return json({ created: event.body }, 201);
+  },
+);
+```
+
+### 4. Server Middleware (`src/middleware.ts`)
 
 ```ts
 import routes from "virtual:file-routes";
 import { createMiddleware } from "@skyjt/typed-routes-solid";
 
 export default createMiddleware(routes, {
-  onValidationError({ error, rawParams, rawSearch, isPage }) {
+  onValidationError({ error, rawParams, rawSearch, rawBody, isPage }) {
     if (isPage) {
       return;
     }
@@ -99,7 +131,7 @@ export default createMiddleware(routes, {
         error: "Route Validation Error",
         target: error.target,
         issues: error.issues,
-        received: { params: rawParams, search: rawSearch },
+        received: { params: rawParams, search: rawSearch, body: rawBody },
       },
       { status: 400 },
     );

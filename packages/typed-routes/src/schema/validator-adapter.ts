@@ -50,7 +50,12 @@ export class ValidationOutcome<T> {
 
 export type CompiledValidator<T = unknown> = (rawInput: unknown) => ValidationResult<T>;
 
+export type CompiledAsyncValidator<T = unknown> = (
+  rawInput: unknown,
+) => ValidationResult<T> | Promise<ValidationResult<T>>;
+
 const compiledValidatorCache = new WeakMap<object, CompiledValidator<unknown>>();
+const compiledAsyncValidatorCache = new WeakMap<object, CompiledAsyncValidator<unknown>>();
 
 /**
  * Type guard for Standard Schema V1.
@@ -277,4 +282,134 @@ export function evaluateRouteTarget<T>(
     });
   }
   return [undefined, error];
+}
+
+/**
+ * Pre-classifies a validator into a sync-first, async-capable execution closure for API middleware.
+ * Synchronous schemas return `ValidationResult<T>` directly without allocating a Promise or
+ * triggering a microtask tick. Asynchronous Standard Schema v1 or async function validators
+ * resolve cleanly via Promise.
+ */
+export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledAsyncValidator<T> {
+  const key = validator as unknown as object;
+  const cached = compiledAsyncValidatorCache.get(key);
+  if (cached) {
+    return cached as CompiledAsyncValidator<T>;
+  }
+
+  let compiled: CompiledAsyncValidator<T>;
+
+  if (isStandardSchema(validator)) {
+    const standardValidate = validator["~standard"].validate;
+    compiled = function validateStandardSchemaAsync(
+      rawInput: unknown,
+    ): ValidationResult<T> | Promise<ValidationResult<T>> {
+      const direct = standardValidate(rawInput);
+      if (direct instanceof Promise) {
+        return direct.then(async (resolvedDirect) => {
+          if (!resolvedDirect.issues) {
+            return ValidationOutcome.ok<T>(resolvedDirect.value as T);
+          }
+          if (typeof rawInput === "object" && rawInput !== null) {
+            const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
+            const coercedResult = await standardValidate(coercedInput);
+            if (!coercedResult.issues) {
+              return ValidationOutcome.ok<T>(coercedResult.value as T);
+            }
+          }
+          return ValidationOutcome.fail<T>(formatStandardIssues(resolvedDirect.issues));
+        });
+      }
+      if (!direct.issues) {
+        return ValidationOutcome.ok<T>(direct.value as T);
+      }
+      if (typeof rawInput === "object" && rawInput !== null) {
+        const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
+        const coercedResult = standardValidate(coercedInput);
+        if (coercedResult instanceof Promise) {
+          return coercedResult.then((resolvedCoerced) => {
+            if (!resolvedCoerced.issues) {
+              return ValidationOutcome.ok<T>(resolvedCoerced.value as T);
+            }
+            return ValidationOutcome.fail<T>(formatStandardIssues(direct.issues!));
+          });
+        }
+        if (!coercedResult.issues) {
+          return ValidationOutcome.ok<T>(coercedResult.value as T);
+        }
+      }
+      return ValidationOutcome.fail<T>(formatStandardIssues(direct.issues));
+    };
+  } else if (isZodSchema(validator)) {
+    const syncCompiled = compileValidator(validator);
+    compiled = syncCompiled;
+  } else if (typeof validator === "function") {
+    const fnValidator = validator as FunctionValidator<T>;
+    compiled = function validateFunctionParserAsync(
+      rawInput: unknown,
+    ): ValidationResult<T> | Promise<ValidationResult<T>> {
+      try {
+        const result = fnValidator(rawInput as never);
+        if (result instanceof Promise) {
+          return result.then(
+            (val) => ValidationOutcome.ok<T>(val),
+            async (err: unknown) => {
+              if (typeof rawInput === "object" && rawInput !== null) {
+                try {
+                  const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
+                  const coercedResult = await fnValidator(coercedInput as never);
+                  return ValidationOutcome.ok<T>(coercedResult);
+                } catch {
+                  // Fall through to report initial error
+                }
+              }
+              return ValidationOutcome.fail<T>(extractIssues(err));
+            },
+          );
+        }
+        return ValidationOutcome.ok<T>(result);
+      } catch (err) {
+        if (typeof rawInput === "object" && rawInput !== null) {
+          try {
+            const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
+            const coercedResult = fnValidator(coercedInput as never);
+            if (coercedResult instanceof Promise) {
+              return coercedResult.then(
+                (val) => ValidationOutcome.ok<T>(val),
+                () => ValidationOutcome.fail<T>(extractIssues(err)),
+              );
+            }
+            return ValidationOutcome.ok<T>(coercedResult);
+          } catch {
+            // Fall through to report initial error
+          }
+        }
+        return ValidationOutcome.fail<T>(extractIssues(err));
+      }
+    };
+  } else {
+    compiled = function validatePassthroughAsync(rawInput: unknown): ValidationResult<T> {
+      return ValidationOutcome.ok<T>(rawInput as T);
+    };
+  }
+
+  if ((typeof validator === "object" && validator !== null) || typeof validator === "function") {
+    compiledAsyncValidatorCache.set(key, compiled as CompiledAsyncValidator<unknown>);
+  }
+
+  return compiled;
+}
+
+/**
+ * Executes sync-first, async-capable validation for API middleware targets.
+ */
+export function validateDataAsync<T>(
+  validator: TypeValidator<T> | undefined,
+  rawInput: unknown,
+): ValidationResult<T> | Promise<ValidationResult<T>> {
+  if (!validator) {
+    return ValidationOutcome.ok<T>(rawInput as T);
+  }
+  const runValidator = compileAsyncValidator(validator);
+  return runValidator(rawInput);
 }

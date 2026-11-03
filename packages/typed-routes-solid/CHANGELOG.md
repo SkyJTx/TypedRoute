@@ -1,5 +1,19 @@
 # @skyjt/typed-routes-solid
 
+## 0.6.0
+
+### Minor Changes
+
+- Complete Core API Routes Suite integration and overloaded `SolidDefinedRoute.prototype.handler`:
+  
+  - **Overloaded `route.handler(config, fn)` & Route-Level Header/Cookie/Middleware Support**: Updated `SolidDefinedRoute` and `defineRoute` to support method-scoped `{ body, headers, cookies, search, use, responses }` schemas as well as route-level `headers`, `cookies`, and `use` middleware arrays while preserving `SolidDefinedRoute`'s single-slot memory layout.
+  - **Full Re-export of Core API Route Utilities & RPC Types**: Re-exported `HttpError`, `json`, `text`, `noContent`, `redirect`, `defineMiddleware`, `registerAPIHandler`, `getAPIHandlerMeta`, `CompiledAPIHandlerMeta`, `compileAsyncValidator`, `validateDataAsync`, `parseRequestBody`, `parseRequestCookies`, `parseRequestHeaders`, `formatHandlerFlags`, `InferHandlerInput`, `InferHandlerOutput`, `InferHandlerData`, `RouteMethodHandlerFor`, and `TypedResponse` directly from `@skyjt/typed-routes-solid`.
+
+### Patch Changes
+
+- Updated dependencies:
+  - `@skyjt/typed-routes@0.7.0`
+
 ## 0.5.1
 
 ### Patch Changes

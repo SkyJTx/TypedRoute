@@ -1,5 +1,19 @@
 # @skyjt/typed-routes
 
+## 0.7.0
+
+### Minor Changes
+
+- Complete Core API Routes Suite ? method-scoped schemas, sync-first async validation, composable middleware with typed context, response & `HttpError` helpers, and end-to-end RPC type inference:
+  
+  - **Overloaded `route.handler(config, fn)` & Zero-Allocation Fast Path**: Added a 2-argument `route.handler({ body, headers, cookies, search, use, responses }, fn)` overload on `DefinedRoute` while preserving the 1-argument `route.handler(fn)` as a zero-allocation identity return and keeping `DefinedRoute`'s single-slot (`16 B` V8 / `24 B` JSC) memory layout intact.
+  - **WeakMap Handler Metadata & Smi Bitflags**: Stored compiled per-method validators and middleware chains inside `apiHandlerMetaMap` (`CompiledAPIHandlerMeta`) with 31-bit Smi bitflags (`HANDLER_FLAG_*`, `ROUTE_FLAG_*`) so handler functions never undergo V8 hidden-class property transitions and unconfigured `GET` routes pay zero parsing overhead.
+  - **Content-Type Request Body, Header & Cookie Validation Pipeline**: Added `parseRequestBody` (supporting `application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`, `text/*`, and `ArrayBuffer`, with clean `400 Bad Request` validation errors on malformed JSON), `parseRequestHeaders` (normalized lowercase keys), and single-pass ASCII `parseRequestCookies` with prototype-pollution guards. Widened `RouteValidationTarget` and `RouteValidationError` with `rawBody`, `rawHeaders`, and `rawCookies`.
+  - **Sync-First Asynchronous Schema Validation (`compileAsyncValidator` & `validateDataAsync`)**: Added async `StandardSchemaV1` and async function validator support in `createMiddleware` while executing synchronous validators directly without allocating a `Promise` or triggering a microtask tick. Unwrapped `Awaited<O>` in `InferOutput<T>` for async function parsers.
+  - **Composable API Middleware (`defineMiddleware` & `use`)**: Added route-level (`defineRoute({ use })`) and handler-level (`route.handler({ use }, fn)`) middleware chains that can short-circuit with a `Response` or return typed context objects merged into `event.context` (`MergeMiddlewareContext`).
+  - **Typed Response Helpers & `HttpError` Exception Hierarchy**: Exported `json()`, `text()`, `noContent()`, and `redirect()` returning `TypedResponse<TData, TStatus>`, optional per-status `responses` schema validation, and structured `HttpError` (`badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`, `unprocessable`, `internal`) with automatic serialization and `MiddlewareOptions.onApiError` customization.
+  - **End-to-End Compile-Time RPC Type Inference**: Exported `InferHandlerInput`, `InferHandlerOutput`, `InferHandlerData`, and `RouteMethodHandlerFor` for zero-cost client/server type sharing.
+
 ## 0.6.3
 
 ### Patch Changes

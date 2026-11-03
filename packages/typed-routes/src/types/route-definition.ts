@@ -4,7 +4,20 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { TypeValidator } from "./type-validator";
+import type { InferOutput, TypeValidator } from "./type-validator";
+
+/**
+ * Target segment of a route or API request where validation was performed.
+ */
+export type RouteValidationTarget =
+  | "params"
+  | "search"
+  | "state"
+  | "hash"
+  | "body"
+  | "headers"
+  | "cookies"
+  | "response";
 
 /**
  * Framework-agnostic route location representation.
@@ -95,27 +108,131 @@ export interface MiddlewareRouteEntry {
 }
 
 /**
- * Strongly-typed API request event carrying validated and coerced params and search objects.
+ * Strongly-typed API request event carrying validated and coerced params, search, body,
+ * headers, cookies, and middleware context objects.
  */
-export interface TypedAPIEvent<
+export type TypedAPIEvent<
   TParams = Record<string, string | undefined>,
   TSearch = Record<string, unknown>,
-> {
+  TBody = undefined,
+  THeaders = undefined,
+  TCookies = undefined,
+  TContext = undefined,
+> = {
   request: Request;
   params: TParams;
   search: TSearch;
   validationError?: RouteValidationError;
   [key: string]: unknown;
-}
+} & ([TBody] extends [undefined] ? { body?: unknown } : { body: TBody }) &
+  ([THeaders] extends [undefined]
+    ? { headers?: Record<string, string | undefined> }
+    : { headers: THeaders }) &
+  ([TCookies] extends [undefined]
+    ? { cookies?: Record<string, string | undefined> }
+    : { cookies: TCookies }) &
+  ([TContext] extends [undefined]
+    ? { context?: Record<string, unknown> }
+    : { context: TContext });
 
 /**
- * Strongly-typed API handler function bound to route params and search schemas.
+ * Strongly-typed API handler function bound to route and method schemas.
  */
 export type TypedAPIHandler<
   TParams = Record<string, string | undefined>,
   TSearch = Record<string, unknown>,
   TResult = unknown,
-> = (event: TypedAPIEvent<TParams, TSearch>) => TResult | Promise<TResult>;
+  TBody = undefined,
+  THeaders = undefined,
+  TCookies = undefined,
+  TContext = undefined,
+> = (
+  event: TypedAPIEvent<TParams, TSearch, TBody, THeaders, TCookies, TContext>,
+) => TResult | Promise<TResult>;
+
+/**
+ * Return value of an API middleware function:
+ * - Returning a `Response` short-circuits the pipeline and sends the response immediately.
+ * - Returning a plain object merges its properties into `event.context`.
+ * - Returning `void` or `undefined` continues execution without modifying `event.context`.
+ */
+export type APIMiddlewareResult<
+  TContextOut extends Record<string, unknown> = Record<string, unknown>,
+> = TContextOut | Response | void | undefined;
+
+/**
+ * Composable API middleware function executed prior to an API handler.
+ */
+export type APIMiddleware<
+  TContextOut extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  (
+    event: TypedAPIEvent<
+      Record<string, unknown>,
+      Record<string, unknown>,
+      unknown,
+      Record<string, string | undefined>,
+      Record<string, string | undefined>,
+      Record<string, unknown>
+    >,
+  ): APIMiddlewareResult<TContextOut> | Promise<APIMiddlewareResult<TContextOut>>;
+  readonly _contextOut?: TContextOut;
+};
+
+/**
+ * Recursively merges the output context types of a middleware tuple into a single object type.
+ */
+export type MergeMiddlewareContext<M> =
+  M extends readonly [infer Head, ...infer Tail]
+    ? (Head extends APIMiddleware<infer C> ? C : Record<string, never>) &
+        MergeMiddlewareContext<Tail>
+    : Record<string, unknown>;
+
+/**
+ * Per-method configuration passed to `route.handler(config, fn)`.
+ */
+export interface APIHandlerConfig<
+  B extends TypeValidator<unknown, unknown> | undefined = TypeValidator<unknown, unknown> | undefined,
+  H extends TypeValidator<unknown, unknown> | undefined = TypeValidator<unknown, unknown> | undefined,
+  C extends TypeValidator<unknown, unknown> | undefined = TypeValidator<unknown, unknown> | undefined,
+  S extends TypeValidator<unknown, unknown> | undefined = TypeValidator<unknown, unknown> | undefined,
+  M extends readonly APIMiddleware[] | undefined = readonly APIMiddleware[] | undefined,
+  R extends Record<number, TypeValidator<unknown, unknown>> | undefined =
+    | Record<number, TypeValidator<unknown, unknown>>
+    | undefined,
+> {
+  body?: B;
+  headers?: H;
+  cookies?: C;
+  search?: S;
+  use?: M;
+  responses?: R;
+}
+
+/**
+ * API handler tagged with compile-time phantom metadata for end-to-end RPC inference.
+ */
+export type ConfiguredAPIHandler<
+  TParams = Record<string, string | undefined>,
+  TSearch = Record<string, unknown>,
+  TResult = unknown,
+  TBody = unknown,
+  THeaders = Record<string, string | undefined>,
+  TCookies = Record<string, string | undefined>,
+  TContext = Record<string, unknown>,
+  TResponses extends Record<number, TypeValidator<unknown, unknown>> | undefined = undefined,
+> = TypedAPIHandler<TParams, TSearch, TResult, TBody, THeaders, TCookies, TContext> & {
+  readonly _rpcMeta?: {
+    readonly params: TParams;
+    readonly search: TSearch;
+    readonly body: TBody;
+    readonly headers: THeaders;
+    readonly cookies: TCookies;
+    readonly context: TContext;
+    readonly result: TResult;
+    readonly responses: TResponses;
+  };
+};
 
 /**
  * Discriminated tuple representing either validated route data or a RouteValidationError.
@@ -138,11 +255,16 @@ export interface RouteConfig<
   THash = unknown,
   TData = unknown,
   TLocation = RouteLocation<TState>,
+  THeaders = Record<string, string | undefined>,
+  TCookies = Record<string, string | undefined>,
 > {
   params?: TypeValidator<TParams>;
   search?: TypeValidator<TSearch>;
   state?: TypeValidator<TState>;
   hash?: TypeValidator<THash>;
+  headers?: TypeValidator<THeaders>;
+  cookies?: TypeValidator<TCookies>;
+  use?: readonly APIMiddleware[];
   preload?: (args: {
     params: RouteValidationTuple<TParams>;
     search: RouteValidationTuple<TSearch>;
@@ -166,28 +288,90 @@ export interface DefinedRouteConfig<
   THash = unknown,
   TData = unknown,
   TLocation = RouteLocation<TState>,
+  THeaders = undefined,
+  TCookies = undefined,
 > {
-  readonly config: RouteConfig<TParams, TSearch, TState, THash, TData, TLocation>;
+  readonly config: RouteConfig<
+    TParams,
+    TSearch,
+    TState,
+    THash,
+    TData,
+    TLocation,
+    THeaders,
+    TCookies
+  >;
   handler<TResult = unknown>(
-    fn: TypedAPIHandler<TParams, TSearch, TResult>,
-  ): TypedAPIHandler<TParams, TSearch, TResult>;
+    fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
+  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  handler<
+    B extends TypeValidator<unknown, unknown> | undefined = undefined,
+    H extends TypeValidator<unknown, unknown> | undefined = undefined,
+    C extends TypeValidator<unknown, unknown> | undefined = undefined,
+    S extends TypeValidator<unknown, unknown> | undefined = undefined,
+    const M extends readonly APIMiddleware[] | undefined = undefined,
+    R extends Record<number, TypeValidator<unknown, unknown>> | undefined = undefined,
+    TResult = unknown,
+  >(
+    config: APIHandlerConfig<B, H, C, S, M, R>,
+    fn: TypedAPIHandler<
+      TParams,
+      S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
+      TResult,
+      InferOutput<B>,
+      H extends TypeValidator<unknown, unknown>
+        ? InferOutput<H>
+        : [THeaders] extends [undefined]
+          ? Record<string, string | undefined>
+          : THeaders,
+      C extends TypeValidator<unknown, unknown>
+        ? InferOutput<C>
+        : [TCookies] extends [undefined]
+          ? Record<string, string | undefined>
+          : TCookies,
+      MergeMiddlewareContext<M>
+    >,
+  ): ConfiguredAPIHandler<
+    TParams,
+    S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
+    TResult,
+    InferOutput<B>,
+    H extends TypeValidator<unknown, unknown>
+      ? InferOutput<H>
+      : [THeaders] extends [undefined]
+        ? Record<string, string | undefined>
+        : THeaders,
+    C extends TypeValidator<unknown, unknown>
+      ? InferOutput<C>
+      : [TCookies] extends [undefined]
+        ? Record<string, string | undefined>
+        : TCookies,
+    MergeMiddlewareContext<M>,
+    R
+  >;
 }
 
 /**
- * Error thrown on route validation failure.
+ * Error thrown on route or API payload validation failure.
  */
 export class RouteValidationError extends Error {
-  public readonly target: "params" | "search" | "state" | "hash";
+  public readonly target: RouteValidationTarget;
   public readonly issues: ReadonlyArray<{ message: string; path?: string }>;
   public readonly rawParams: Record<string, string | undefined>;
   public readonly rawSearch: Record<string, unknown>;
+  public readonly rawBody: unknown;
+  public readonly rawHeaders: Record<string, string | undefined> | undefined;
+  public readonly rawCookies: Record<string, string | undefined> | undefined;
 
   public constructor(
-    target: "params" | "search" | "state" | "hash",
+    target: RouteValidationTarget,
     issues: ReadonlyArray<{ message: string; path?: string }>,
     context?: {
       rawParams?: Record<string, string | undefined>;
       rawSearch?: Record<string, unknown>;
+      rawBody?: unknown;
+      rawHeaders?: Record<string, string | undefined>;
+      rawCookies?: Record<string, string | undefined>;
     },
   ) {
     super(`Route validation failed for ${target}: ${issues.map((i) => i.message).join("; ")}`);
@@ -196,5 +380,8 @@ export class RouteValidationError extends Error {
     this.issues = issues;
     this.rawParams = context?.rawParams ?? {};
     this.rawSearch = context?.rawSearch ?? {};
+    this.rawBody = context?.rawBody;
+    this.rawHeaders = context?.rawHeaders;
+    this.rawCookies = context?.rawCookies;
   }
 }

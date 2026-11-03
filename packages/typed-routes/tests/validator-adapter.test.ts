@@ -186,7 +186,7 @@ describe("Universal Validator Adapter", () => {
       });
 
       if (error) {
-        const target: "params" | "search" | "state" | "hash" = error.target;
+        const target: string = error.target;
         expect(target).toBe("params");
       } else {
         const _unreachable: { id: number } = data;

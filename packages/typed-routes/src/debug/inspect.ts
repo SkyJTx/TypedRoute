@@ -21,6 +21,20 @@ export const ROUTE_FLAG_VALIDATION_ONLY = 1 << 1;
 export const ROUTE_FLAG_CONFIG_RESOLVED = 1 << 2;
 export const ROUTE_FLAG_HAS_PARAMS_SCHEMA = 1 << 3;
 export const ROUTE_FLAG_HAS_SEARCH_SCHEMA = 1 << 4;
+export const ROUTE_FLAG_HAS_HEADERS_SCHEMA = 1 << 5;
+export const ROUTE_FLAG_HAS_COOKIES_SCHEMA = 1 << 6;
+export const ROUTE_FLAG_HAS_MIDDLEWARE = 1 << 7;
+
+/**
+ * Smi (31-bit Small Integer) bitflag constants for per-method API handler metadata.
+ */
+export const HANDLER_FLAG_NONE = 0;
+export const HANDLER_FLAG_HAS_SEARCH_SCHEMA = 1 << 0;
+export const HANDLER_FLAG_HAS_BODY_SCHEMA = 1 << 1;
+export const HANDLER_FLAG_HAS_HEADERS_SCHEMA = 1 << 2;
+export const HANDLER_FLAG_HAS_COOKIES_SCHEMA = 1 << 3;
+export const HANDLER_FLAG_HAS_MIDDLEWARE = 1 << 4;
+export const HANDLER_FLAG_HAS_RESPONSES_SCHEMA = 1 << 5;
 
 /**
  * Structural covariant view of a route configuration for diagnostic inspection.
@@ -30,6 +44,9 @@ export interface InspectableRouteConfig {
   readonly search?: unknown;
   readonly state?: unknown;
   readonly hash?: unknown;
+  readonly headers?: unknown;
+  readonly cookies?: unknown;
+  readonly use?: readonly unknown[];
   readonly preload?: unknown;
   readonly onError?: unknown;
   readonly info?: Record<string, unknown>;
@@ -86,6 +103,41 @@ export function formatRouteFlags(flags: number): string[] {
   }
   if ((flags & ROUTE_FLAG_HAS_SEARCH_SCHEMA) !== 0) {
     names.push("HAS_SEARCH_SCHEMA");
+  }
+  if ((flags & ROUTE_FLAG_HAS_HEADERS_SCHEMA) !== 0) {
+    names.push("HAS_HEADERS_SCHEMA");
+  }
+  if ((flags & ROUTE_FLAG_HAS_COOKIES_SCHEMA) !== 0) {
+    names.push("HAS_COOKIES_SCHEMA");
+  }
+  if ((flags & ROUTE_FLAG_HAS_MIDDLEWARE) !== 0) {
+    names.push("HAS_MIDDLEWARE");
+  }
+  return names;
+}
+
+/**
+ * Decodes a Smi bitmask of API handler flags into an array of human-readable flag names.
+ */
+export function formatHandlerFlags(flags: number): string[] {
+  const names: string[] = [];
+  if ((flags & HANDLER_FLAG_HAS_SEARCH_SCHEMA) !== 0) {
+    names.push("HAS_SEARCH_SCHEMA");
+  }
+  if ((flags & HANDLER_FLAG_HAS_BODY_SCHEMA) !== 0) {
+    names.push("HAS_BODY_SCHEMA");
+  }
+  if ((flags & HANDLER_FLAG_HAS_HEADERS_SCHEMA) !== 0) {
+    names.push("HAS_HEADERS_SCHEMA");
+  }
+  if ((flags & HANDLER_FLAG_HAS_COOKIES_SCHEMA) !== 0) {
+    names.push("HAS_COOKIES_SCHEMA");
+  }
+  if ((flags & HANDLER_FLAG_HAS_MIDDLEWARE) !== 0) {
+    names.push("HAS_MIDDLEWARE");
+  }
+  if ((flags & HANDLER_FLAG_HAS_RESPONSES_SCHEMA) !== 0) {
+    names.push("HAS_RESPONSES_SCHEMA");
   }
   return names;
 }

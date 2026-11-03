@@ -10,8 +10,8 @@
 
 | Package | Version | Description |
 | :--- | :--- | :--- |
-| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.6.3` | Framework-agnostic routing core: schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), type inference, `route.handler()`, `RouteValidationTuple` (`[data, error]`), `evaluateRouteTarget`, API middleware (`createMiddleware`), and Vite plugin. |
-| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.5.1` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter`, `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), `<Link>`, `useNavigate`, and Solid SSR Vite plugin. |
+| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.7.0` | Framework-agnostic routing core: sync/async schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), `route.handler(config, fn)` (`body`, `headers`, `cookies`, `responses`, `use`), `defineMiddleware`, `json`/`HttpError` helpers, RPC type inference, `createMiddleware`, and Vite plugin. |
+| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.6.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter`, `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), `<Link>`, `useNavigate`, full API route helpers, and Solid SSR Vite plugin. |
 
 ---
 
@@ -106,15 +106,24 @@ Browse the full documentation and API Reference in [`./docs`](./docs/index.md):
 5. **Define a Typed API Route (`src/routes/api/users/[id].ts`)**:
    ```ts
    import * as v from "valibot";
-   import { defineRoute } from "@skyjt/typed-routes-solid";
+   import { defineRoute, json } from "@skyjt/typed-routes-solid";
 
    export const route = defineRoute({
      params: v.object({ id: v.number() }),
    });
 
    export const GET = route.handler((event) => {
-     return Response.json({ userId: event.params.id });
+     return json({ userId: event.params.id });
    });
+
+   export const PATCH = route.handler(
+     {
+       body: v.object({ name: v.pipe(v.string(), v.nonEmpty()) }),
+     },
+     (event) => {
+       return json({ updatedId: event.params.id, name: event.body.name });
+     },
+   );
    ```
 
 ---

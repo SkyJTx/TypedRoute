@@ -71,7 +71,7 @@ export type InferOutput<T> =
           ? O
           : unknown
         : T extends (...args: never[]) => infer O
-          ? O
+          ? Awaited<O>
           : unknown;
 
 /**

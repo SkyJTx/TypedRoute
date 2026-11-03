@@ -8,8 +8,14 @@ import type { Accessor } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Location } from "@solidjs/router";
 import type {
+  APIHandlerConfig,
+  APIMiddleware,
+  ConfiguredAPIHandler,
+  InferOutput,
+  MergeMiddlewareContext,
   RouteConfig,
   RouteValidationError,
+  TypeValidator,
   TypedAPIHandler,
   ExtractRoutePaths,
   RouteParamsFor,
@@ -17,33 +23,30 @@ import type {
   NavigationArgs,
 } from "@skyjt/typed-routes";
 
-/**
- * Reactive SolidJS tuple of accessors returned by `route.useParams()` and `route.useSearch()`.
- *
- * Follows Solid's `createSignal` convention: unpacked once at component setup
- * (`const [params, paramsError] = route.useParams()`), where `params()` and `paramsError()`
- * are fine-grained reactive accessors. Pair with `<Show when={params()}>` to promote `params`
- * to `Accessor<NonNullable<T>>`.
- */
 export type RouteAccessorTuple<T> = readonly [
   data: Accessor<T | undefined>,
   error: Accessor<RouteValidationError | undefined>,
 ];
 
-/**
- * SolidJS route configuration extending core RouteConfig with SolidJS Location type.
- */
 export interface SolidRouteConfig<
   TParams = unknown,
   TSearch = unknown,
   TState = unknown,
   THash = unknown,
   TData = unknown,
-> extends RouteConfig<TParams, TSearch, TState, THash, TData, Location<TState>> {}
+  THeaders = undefined,
+  TCookies = undefined,
+> extends RouteConfig<
+    TParams,
+    TSearch,
+    TState,
+    THash,
+    TData,
+    Location<TState>,
+    THeaders,
+    TCookies
+  > {}
 
-/**
- * Route validation context accessors for SolidJS.
- */
 export interface RouteValidationContextValue<
   TParams = unknown,
   TSearch = unknown,
@@ -52,28 +55,69 @@ export interface RouteValidationContextValue<
   search: RouteAccessorTuple<TSearch>;
 }
 
-/**
- * SolidJS route hooks, API handler helper, and configuration bound to route schemas.
- */
 export interface DefinedRouteObject<
   TParams = unknown,
   TSearch = unknown,
   TState = unknown,
   THash = unknown,
   TData = unknown,
+  THeaders = undefined,
+  TCookies = undefined,
 > {
-  readonly config: SolidRouteConfig<TParams, TSearch, TState, THash, TData>;
+  readonly config: SolidRouteConfig<TParams, TSearch, TState, THash, TData, THeaders, TCookies>;
   useParams(): RouteAccessorTuple<TParams>;
   useSearch(): RouteAccessorTuple<TSearch>;
   useLocation(): Location<TState>;
   handler<TResult = unknown>(
-    fn: TypedAPIHandler<TParams, TSearch, TResult>,
-  ): TypedAPIHandler<TParams, TSearch, TResult>;
+    fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
+  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  handler<
+    B extends TypeValidator<unknown, unknown> | undefined = undefined,
+    H extends TypeValidator<unknown, unknown> | undefined = undefined,
+    C extends TypeValidator<unknown, unknown> | undefined = undefined,
+    S extends TypeValidator<unknown, unknown> | undefined = undefined,
+    const M extends readonly APIMiddleware[] | undefined = undefined,
+    R extends Record<number, TypeValidator<unknown, unknown>> | undefined = undefined,
+    TResult = unknown,
+  >(
+    config: APIHandlerConfig<B, H, C, S, M, R>,
+    fn: TypedAPIHandler<
+      TParams,
+      S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
+      TResult,
+      InferOutput<B>,
+      H extends TypeValidator<unknown, unknown>
+        ? InferOutput<H>
+        : [THeaders] extends [undefined]
+          ? Record<string, string | undefined>
+          : THeaders,
+      C extends TypeValidator<unknown, unknown>
+        ? InferOutput<C>
+        : [TCookies] extends [undefined]
+          ? Record<string, string | undefined>
+          : TCookies,
+      MergeMiddlewareContext<M>
+    >,
+  ): ConfiguredAPIHandler<
+    TParams,
+    S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
+    TResult,
+    InferOutput<B>,
+    H extends TypeValidator<unknown, unknown>
+      ? InferOutput<H>
+      : [THeaders] extends [undefined]
+        ? Record<string, string | undefined>
+        : THeaders,
+    C extends TypeValidator<unknown, unknown>
+      ? InferOutput<C>
+      : [TCookies] extends [undefined]
+        ? Record<string, string | undefined>
+        : TCookies,
+    MergeMiddlewareContext<M>,
+    R
+  >;
 }
 
-/**
- * SolidJS Link component props.
- */
 export type LinkProps<
   TManifest extends readonly unknown[],
   Path extends ExtractRoutePaths<TManifest>,

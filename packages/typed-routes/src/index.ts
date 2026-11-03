@@ -17,6 +17,7 @@ export type {
 } from "./types/type-validator";
 
 export type {
+  RouteValidationTarget,
   RouteLocation,
   RouteConfig,
   DefinedRouteConfig,
@@ -29,6 +30,11 @@ export type {
   MiddlewareRouteEntry,
   TypedAPIEvent,
   TypedAPIHandler,
+  APIMiddlewareResult,
+  APIMiddleware,
+  MergeMiddlewareContext,
+  APIHandlerConfig,
+  ConfiguredAPIHandler,
   RouteValidationTuple,
 } from "./types/route-definition";
 export { RouteValidationError } from "./types/route-definition";
@@ -43,6 +49,10 @@ export type {
   RouteSearchFor,
   NavigationArgs,
   FindRouteEntry,
+  InferHandlerInput,
+  InferHandlerOutput,
+  InferHandlerData,
+  RouteMethodHandlerFor,
 } from "./types/route-inference";
 
 export {
@@ -56,14 +66,32 @@ export {
 export {
   ValidationOutcome,
   compileValidator,
+  compileAsyncValidator,
   validateData,
+  validateDataAsync,
   evaluateRouteTarget,
   isStandardSchema,
   isZodSchema,
   type CompiledValidator,
+  type CompiledAsyncValidator,
 } from "./schema/validator-adapter";
 
 export { DefinedRoute, defineRoute } from "./router/define-route";
+export {
+  CompiledAPIHandlerMeta,
+  defineMiddleware,
+  registerAPIHandler,
+  getAPIHandlerMeta,
+} from "./router/api-handler";
+export {
+  HttpError,
+  json,
+  text,
+  noContent,
+  redirect,
+  type TypedResponse,
+  type HttpErrorOptions,
+} from "./router/api-response";
 export {
   SEGMENT_STATIC,
   SEGMENT_PARAM,
@@ -90,6 +118,11 @@ export {
   type MiddlewareInput,
   type MiddlewareNext,
 } from "./middleware/middleware";
+export {
+  parseRequestBody,
+  parseRequestCookies,
+  parseRequestHeaders,
+} from "./middleware/request-parsers";
 
 export {
   CUSTOM_INSPECT_SYMBOL,
@@ -99,8 +132,19 @@ export {
   ROUTE_FLAG_CONFIG_RESOLVED,
   ROUTE_FLAG_HAS_PARAMS_SCHEMA,
   ROUTE_FLAG_HAS_SEARCH_SCHEMA,
+  ROUTE_FLAG_HAS_HEADERS_SCHEMA,
+  ROUTE_FLAG_HAS_COOKIES_SCHEMA,
+  ROUTE_FLAG_HAS_MIDDLEWARE,
+  HANDLER_FLAG_NONE,
+  HANDLER_FLAG_HAS_SEARCH_SCHEMA,
+  HANDLER_FLAG_HAS_BODY_SCHEMA,
+  HANDLER_FLAG_HAS_HEADERS_SCHEMA,
+  HANDLER_FLAG_HAS_COOKIES_SCHEMA,
+  HANDLER_FLAG_HAS_MIDDLEWARE,
+  HANDLER_FLAG_HAS_RESPONSES_SCHEMA,
   describeValidator,
   formatRouteFlags,
+  formatHandlerFlags,
   inspectRoute,
   type RouteDebugSummary,
 } from "./debug/inspect";

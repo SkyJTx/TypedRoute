@@ -5,7 +5,13 @@
  */
 
 import { createAPIMatcher, type APIEvent } from "filesystem-routing/api";
-import type { MiddlewareRouteEntry, RouteConfig } from "~/types/route-definition";
+import type {
+  APIMiddleware,
+  MiddlewareRouteEntry,
+  RouteConfig,
+  RouteValidationTarget,
+  TypedAPIEvent,
+} from "~/types/route-definition";
 import { RouteValidationError } from "~/types/route-definition";
 import type { ValidationIssue } from "~/types/type-validator";
 import { EMPTY_RECORD, parseFastQueryString } from "~/schema/coercion";
@@ -14,14 +20,30 @@ import {
   ROUTE_FLAG_VALIDATION_ONLY,
   ROUTE_FLAG_HAS_PARAMS_SCHEMA,
   ROUTE_FLAG_HAS_SEARCH_SCHEMA,
+  ROUTE_FLAG_HAS_HEADERS_SCHEMA,
+  ROUTE_FLAG_HAS_COOKIES_SCHEMA,
+  ROUTE_FLAG_HAS_MIDDLEWARE,
+  HANDLER_FLAG_HAS_SEARCH_SCHEMA,
+  HANDLER_FLAG_HAS_BODY_SCHEMA,
+  HANDLER_FLAG_HAS_HEADERS_SCHEMA,
+  HANDLER_FLAG_HAS_COOKIES_SCHEMA,
+  HANDLER_FLAG_HAS_MIDDLEWARE,
+  HANDLER_FLAG_HAS_RESPONSES_SCHEMA,
 } from "~/debug/inspect";
+import { getAPIHandlerMeta, type CompiledAPIHandlerMeta } from "~/router/api-handler";
+import { HttpError } from "~/router/api-response";
 import { parseFastUrl, type ParsedUrl } from "./url-scanner";
-import { RouteNodeMeta, resolveRouteConfig } from "./route-meta";
+import { RouteNodeMeta, isRecord, resolveRouteConfig } from "./route-meta";
 import {
   buildMatcherAndMetadata,
   type HttpMethod,
   type HttpMethodKey,
 } from "./route-matcher";
+import {
+  parseRequestBody,
+  parseRequestCookies,
+  parseRequestHeaders,
+} from "./request-parsers";
 
 export {
   type ParsedUrl,
@@ -56,12 +78,31 @@ export interface MiddlewareOptions {
     error: RouteValidationError;
     rawParams: Record<string, string | undefined>;
     rawSearch: Record<string, unknown>;
+    rawBody?: unknown;
+    rawHeaders?: Record<string, string | undefined>;
+    rawCookies?: Record<string, string | undefined>;
     request: Request;
     isPage: boolean;
+  }) => Response | Promise<Response | void> | void;
+  /**
+   * Callback invoked when an `HttpError` is thrown inside a middleware or API handler.
+   * Returning a custom `Response` overrides the default JSON error serialization.
+   */
+  onApiError?: (args: {
+    error: HttpError;
+    request: Request;
+    event: APIEvent;
   }) => Response | Promise<Response | void> | void;
 }
 
 const RequestContext = Symbol.for("solid.RequestContext");
+
+const ACTIVE_ROUTE_SCHEMA_MASK =
+  ROUTE_FLAG_HAS_PARAMS_SCHEMA |
+  ROUTE_FLAG_HAS_SEARCH_SCHEMA |
+  ROUTE_FLAG_HAS_HEADERS_SCHEMA |
+  ROUTE_FLAG_HAS_COOKIES_SCHEMA |
+  ROUTE_FLAG_HAS_MIDDLEWARE;
 
 function getScopedEvent(request?: Request): APIEvent {
   const store = (
@@ -105,12 +146,26 @@ function toResponse(result: unknown): Response {
   return Response.json(result);
 }
 
+function serializeHttpError(error: HttpError): Response {
+  const payload: Record<string, unknown> = {
+    error: error.message,
+    status: error.status,
+  };
+  if (error.code !== undefined) {
+    payload.code = error.code;
+  }
+  if (error.details !== undefined) {
+    payload.details = error.details;
+  }
+  return Response.json(payload, { status: error.status });
+}
+
 /**
  * Orchestrates error callbacks (`config.onError`, `options.onValidationError`) and builds
  * the appropriate fallback or 400 Bad Request response when schema validation fails.
  */
 async function handleValidationFailure(
-  target: "params" | "search",
+  target: RouteValidationTarget,
   issues: ReadonlyArray<ValidationIssue>,
   rawParams: Record<string, string | undefined>,
   rawSearch: Record<string, unknown>,
@@ -121,10 +176,18 @@ async function handleValidationFailure(
   getEvent: (req?: Request) => APIEvent,
   isPage: boolean,
   next: MiddlewareNext,
+  extraContext?: {
+    rawBody?: unknown;
+    rawHeaders?: Record<string, string | undefined>;
+    rawCookies?: Record<string, string | undefined>;
+  },
 ): Promise<Response> {
   const error = new RouteValidationError(target, issues, {
     rawParams,
     rawSearch,
+    rawBody: extraContext?.rawBody,
+    rawHeaders: extraContext?.rawHeaders,
+    rawCookies: extraContext?.rawCookies,
   });
 
   if (config?.onError) {
@@ -136,6 +199,9 @@ async function handleValidationFailure(
       error,
       rawParams,
       rawSearch,
+      rawBody: extraContext?.rawBody,
+      rawHeaders: extraContext?.rawHeaders,
+      rawCookies: extraContext?.rawCookies,
       request,
       isPage,
     });
@@ -160,8 +226,176 @@ async function handleValidationFailure(
   );
 }
 
+async function runMiddlewareChain(
+  middlewares: readonly APIMiddleware[],
+  event: APIEvent,
+): Promise<Response | undefined> {
+  const len = middlewares.length;
+  for (let i = 0; i < len; i++) {
+    const mw = middlewares[i];
+    const outcome = mw(
+      event as unknown as TypedAPIEvent<
+        Record<string, unknown>,
+        Record<string, unknown>,
+        unknown,
+        Record<string, string | undefined>,
+        Record<string, string | undefined>,
+        Record<string, unknown>
+      >,
+    );
+    const mwResult = outcome instanceof Promise ? await outcome : outcome;
+    if (mwResult instanceof Response) {
+      return mwResult;
+    }
+    if (isRecord(mwResult)) {
+      if (event.context === undefined || event.context === EMPTY_RECORD) {
+        event.context = { ...mwResult };
+      } else if (isRecord(event.context)) {
+        Object.assign(event.context, mwResult);
+      }
+    }
+  }
+  return undefined;
+}
+
+async function executeHandlerPipeline(
+  handlerMeta: CompiledAPIHandlerMeta,
+  event: APIEvent,
+  rawParams: Record<string, string | undefined>,
+  rawSearch: Record<string, unknown>,
+  config: RouteConfig | undefined,
+  options: MiddlewareOptions,
+  eventOrRequest: MiddlewareInput,
+  request: Request,
+  getEvent: (req?: Request) => APIEvent,
+  isPage: boolean,
+  next: MiddlewareNext,
+): Promise<Response | undefined> {
+  const hFlags = handlerMeta.flags;
+
+  if ((hFlags & HANDLER_FLAG_HAS_SEARCH_SCHEMA) !== 0 && handlerMeta.compiledSearchValidator) {
+    const sOutcome = handlerMeta.compiledSearchValidator(rawSearch);
+    const sResult = sOutcome instanceof Promise ? await sOutcome : sOutcome;
+    if (!sResult.success) {
+      return handleValidationFailure(
+        "search",
+        sResult.issues ?? [],
+        rawParams,
+        rawSearch,
+        config,
+        options,
+        eventOrRequest,
+        request,
+        getEvent,
+        isPage,
+        next,
+      );
+    }
+    event.search = sResult.data;
+  }
+
+  if ((hFlags & HANDLER_FLAG_HAS_HEADERS_SCHEMA) !== 0 && handlerMeta.compiledHeadersValidator) {
+    const rawHeaders = parseRequestHeaders(request.headers);
+    const hOutcome = handlerMeta.compiledHeadersValidator(rawHeaders);
+    const hResult = hOutcome instanceof Promise ? await hOutcome : hOutcome;
+    if (!hResult.success) {
+      return handleValidationFailure(
+        "headers",
+        hResult.issues ?? [],
+        rawParams,
+        rawSearch,
+        config,
+        options,
+        eventOrRequest,
+        request,
+        getEvent,
+        isPage,
+        next,
+        { rawHeaders },
+      );
+    }
+    event.headers = hResult.data;
+  } else if (event.headers === undefined || event.headers === EMPTY_RECORD) {
+    event.headers = parseRequestHeaders(request.headers);
+  }
+
+  if ((hFlags & HANDLER_FLAG_HAS_COOKIES_SCHEMA) !== 0 && handlerMeta.compiledCookiesValidator) {
+    const rawCookies = parseRequestCookies(request.headers.get("cookie"));
+    const cOutcome = handlerMeta.compiledCookiesValidator(rawCookies);
+    const cResult = cOutcome instanceof Promise ? await cOutcome : cOutcome;
+    if (!cResult.success) {
+      return handleValidationFailure(
+        "cookies",
+        cResult.issues ?? [],
+        rawParams,
+        rawSearch,
+        config,
+        options,
+        eventOrRequest,
+        request,
+        getEvent,
+        isPage,
+        next,
+        { rawCookies },
+      );
+    }
+    event.cookies = cResult.data;
+  } else if (event.cookies === undefined || event.cookies === EMPTY_RECORD) {
+    event.cookies = parseRequestCookies(request.headers.get("cookie"));
+  }
+
+  if ((hFlags & HANDLER_FLAG_HAS_BODY_SCHEMA) !== 0 && handlerMeta.compiledBodyValidator) {
+    const parsedBodyOutcome = await parseRequestBody(request);
+    if (!parsedBodyOutcome.success) {
+      return handleValidationFailure(
+        "body",
+        parsedBodyOutcome.issues ?? [],
+        rawParams,
+        rawSearch,
+        config,
+        options,
+        eventOrRequest,
+        request,
+        getEvent,
+        isPage,
+        next,
+      );
+    }
+    const rawBody = parsedBodyOutcome.data;
+    const bOutcome = handlerMeta.compiledBodyValidator(rawBody);
+    const bResult = bOutcome instanceof Promise ? await bOutcome : bOutcome;
+    if (!bResult.success) {
+      return handleValidationFailure(
+        "body",
+        bResult.issues ?? [],
+        rawParams,
+        rawSearch,
+        config,
+        options,
+        eventOrRequest,
+        request,
+        getEvent,
+        isPage,
+        next,
+        { rawBody },
+      );
+    }
+    event.body = bResult.data;
+  }
+
+  if ((hFlags & HANDLER_FLAG_HAS_MIDDLEWARE) !== 0 && handlerMeta.middleware) {
+    const shortCircuit = await runMiddlewareChain(handlerMeta.middleware, event);
+    if (shortCircuit !== undefined) {
+      return shortCircuit;
+    }
+  }
+
+  return undefined;
+}
+
 /**
- * Creates fetch middleware that validates request parameters and search queries against route schemas.
+ * Creates fetch middleware that validates request parameters, search queries, headers, cookies,
+ * bodies, and response payloads against route and per-method schemas.
  */
 export function createMiddleware(
   routes: readonly MiddlewareRouteEntry[],
@@ -194,11 +428,8 @@ export function createMiddleware(
     const flags = meta.flags;
     const isValidationOnlyPage = (flags & ROUTE_FLAG_VALIDATION_ONLY) !== 0;
 
-    const hasParamsSchema = (flags & ROUTE_FLAG_HAS_PARAMS_SCHEMA) !== 0;
-    const hasSearchSchema = (flags & ROUTE_FLAG_HAS_SEARCH_SCHEMA) !== 0;
-
     // Validation-only page route without active schemas requires zero allocations
-    if (isValidationOnlyPage && !hasParamsSchema && !hasSearchSchema) {
+    if (isValidationOnlyPage && (flags & ACTIVE_ROUTE_SCHEMA_MASK) === 0) {
       return next();
     }
 
@@ -212,8 +443,9 @@ export function createMiddleware(
 
     let validatedParams: unknown = rawParams;
 
-    if (hasParamsSchema && meta.compiledParamsValidator) {
-      const paramsResult = meta.compiledParamsValidator(rawParams);
+    if ((flags & ROUTE_FLAG_HAS_PARAMS_SCHEMA) !== 0 && meta.compiledParamsValidator) {
+      const pOutcome = meta.compiledParamsValidator(rawParams);
+      const paramsResult = pOutcome instanceof Promise ? await pOutcome : pOutcome;
       if (!paramsResult.success) {
         rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
         return handleValidationFailure(
@@ -234,9 +466,10 @@ export function createMiddleware(
     }
 
     let validatedSearch: unknown;
-    if (hasSearchSchema && meta.compiledSearchValidator) {
+    if ((flags & ROUTE_FLAG_HAS_SEARCH_SCHEMA) !== 0 && meta.compiledSearchValidator) {
       rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
-      const searchResult = meta.compiledSearchValidator(rawSearch);
+      const sOutcome = meta.compiledSearchValidator(rawSearch);
+      const searchResult = sOutcome instanceof Promise ? await sOutcome : sOutcome;
       if (!searchResult.success) {
         return handleValidationFailure(
           "search",
@@ -262,29 +495,169 @@ export function createMiddleware(
         : EMPTY_RECORD;
     }
 
+    let validatedHeaders: unknown = EMPTY_RECORD;
+    if ((flags & ROUTE_FLAG_HAS_HEADERS_SCHEMA) !== 0 && meta.compiledHeadersValidator) {
+      const rawHeaders = parseRequestHeaders(request.headers);
+      const hOutcome = meta.compiledHeadersValidator(rawHeaders);
+      const headersResult = hOutcome instanceof Promise ? await hOutcome : hOutcome;
+      if (!headersResult.success) {
+        rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+        return handleValidationFailure(
+          "headers",
+          headersResult.issues ?? [],
+          rawParams,
+          rawSearch,
+          config,
+          options,
+          eventOrRequest,
+          request,
+          getEvent,
+          isPage,
+          next,
+          { rawHeaders },
+        );
+      }
+      validatedHeaders = headersResult.data;
+    }
+
+    let validatedCookies: unknown = EMPTY_RECORD;
+    if ((flags & ROUTE_FLAG_HAS_COOKIES_SCHEMA) !== 0 && meta.compiledCookiesValidator) {
+      const rawCookies = parseRequestCookies(request.headers.get("cookie"));
+      const cOutcome = meta.compiledCookiesValidator(rawCookies);
+      const cookiesResult = cOutcome instanceof Promise ? await cOutcome : cOutcome;
+      if (!cookiesResult.success) {
+        rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+        return handleValidationFailure(
+          "cookies",
+          cookiesResult.issues ?? [],
+          rawParams,
+          rawSearch,
+          config,
+          options,
+          eventOrRequest,
+          request,
+          getEvent,
+          isPage,
+          next,
+          { rawCookies },
+        );
+      }
+      validatedCookies = cookiesResult.data;
+    }
+
     const event = resolveRequestEvent(eventOrRequest, request, getEvent);
     event.request = request;
     event.params = validatedParams as Record<string, string>;
     event.search = validatedSearch;
-
-    if (isValidationOnlyPage) {
-      return next();
+    event.headers = validatedHeaders;
+    event.cookies = validatedCookies;
+    if (event.context === undefined) {
+      event.context = EMPTY_RECORD;
     }
 
-    const mod =
-      "require" in matched.handler
-        ? matched.handler.require()
-        : await matched.handler.import();
-    const handlerFn = method === "HEAD" ? mod.HEAD || mod.GET : mod[method];
+    try {
+      if ((flags & ROUTE_FLAG_HAS_MIDDLEWARE) !== 0 && meta.middleware) {
+        const routeMwResponse = await runMiddlewareChain(meta.middleware, event);
+        if (routeMwResponse !== undefined) {
+          return routeMwResponse;
+        }
+      }
 
-    if (typeof handlerFn !== "function") {
-      return next();
-    }
+      if (isValidationOnlyPage) {
+        return next();
+      }
 
-    const result = await handlerFn(event);
+      const mod =
+        "require" in matched.handler
+          ? matched.handler.require()
+          : await matched.handler.import();
+      const handlerFn = method === "HEAD" ? mod.HEAD || mod.GET : mod[method];
 
-    if (result !== undefined) {
-      return toResponse(result);
+      if (typeof handlerFn !== "function") {
+        return next();
+      }
+
+      const handlerMeta = getAPIHandlerMeta(handlerFn);
+      if (handlerMeta !== undefined) {
+        const pipelineResponse = await executeHandlerPipeline(
+          handlerMeta,
+          event,
+          rawParams,
+          rawSearch ?? EMPTY_RECORD,
+          config,
+          options,
+          eventOrRequest,
+          request,
+          getEvent,
+          isPage,
+          next,
+        );
+        if (pipelineResponse !== undefined) {
+          return pipelineResponse;
+        }
+      }
+
+      const result = await handlerFn(event);
+
+      if (result !== undefined) {
+        const response = toResponse(result);
+        if (
+          handlerMeta !== undefined &&
+          (handlerMeta.flags & HANDLER_FLAG_HAS_RESPONSES_SCHEMA) !== 0 &&
+          handlerMeta.compiledResponseValidators !== undefined
+        ) {
+          const responseValidator = handlerMeta.compiledResponseValidators.get(response.status);
+          if (responseValidator !== undefined) {
+            let payloadToValidate: unknown = result;
+            if (result instanceof Response) {
+              const ct = response.headers.get("content-type") ?? "";
+              if (ct.includes("application/json") || ct.includes("+json")) {
+                try {
+                  payloadToValidate = await response.clone().json();
+                } catch {
+                  payloadToValidate = undefined;
+                }
+              } else {
+                payloadToValidate = await response.clone().text();
+              }
+            }
+            const rOutcome = responseValidator(payloadToValidate);
+            const rResult = rOutcome instanceof Promise ? await rOutcome : rOutcome;
+            if (!rResult.success) {
+              return handleValidationFailure(
+                "response",
+                rResult.issues ?? [],
+                rawParams,
+                rawSearch ?? EMPTY_RECORD,
+                config,
+                options,
+                eventOrRequest,
+                request,
+                getEvent,
+                isPage,
+                next,
+                { rawBody: payloadToValidate },
+              );
+            }
+          }
+        }
+        return response;
+      }
+    } catch (err) {
+      if (err instanceof HttpError) {
+        if (options.onApiError) {
+          const customErrorResponse = await options.onApiError({
+            error: err,
+            request,
+            event,
+          });
+          if (customErrorResponse instanceof Response) {
+            return customErrorResponse;
+          }
+        }
+        return serializeHttpError(err);
+      }
+      throw err;
     }
 
     if (method !== "GET") {

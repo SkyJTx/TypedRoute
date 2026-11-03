@@ -30,6 +30,9 @@ export const route = defineRoute({
 | `search` | `TypeValidator<TSearch>` | `undefined` | Schema validator for URL query string parameters (`?key=value`). |
 | `state` | `TypeValidator<TState>` | `undefined` | Schema validator for router history state (`location.state`). |
 | `hash` | `TypeValidator<THash>` | `undefined` | Schema validator for the URL hash fragment (`location.hash`). |
+| `headers` | `TypeValidator<THeaders>` | `undefined` | Schema validator for normalized lowercase HTTP request headers across all HTTP handlers in the route file. |
+| `cookies` | `TypeValidator<TCookies>` | `undefined` | Schema validator for parsed HTTP request cookies across all HTTP handlers in the route file. |
+| `use` | `readonly APIMiddleware[]` | `undefined` | Array of composable API middlewares (`defineMiddleware`) executed before any HTTP handler in the route file. |
 | `preload` | `(args: { params: RouteValidationTuple<TParams>; search: RouteValidationTuple<TSearch>; location: Location<TState> }) => TData` | `undefined` | Preload callback invoked by `@solidjs/router` with `params` and `search` as discriminated `RouteValidationTuple` values. |
 | `onError` | `(args: { error: RouteValidationError; rawParams: Record<string, string \| undefined>; rawSearch: Record<string, unknown> }) => void` | `undefined` | Side-effect telemetry callback invoked whenever `params` or `search` validation fails on either the server (`createMiddleware`) or client/SSR (`RouteValidationProvider`). |
 | `info` | `Record<string, unknown>` | `undefined` | Arbitrary route metadata forwarded to `@solidjs/router`. |
@@ -46,7 +49,8 @@ export const route = defineRoute({
 | `useParams()` | `RouteAccessorTuple<TParams>` | (`@skyjt/typed-routes-solid`) Returns a reactive tuple of accessors (`readonly [data: Accessor<TParams \| undefined>, error: Accessor<RouteValidationError \| undefined>]`). Unpacked once at component setup; pair with `<Show when={params()}>` to promote `validParams` to a non-nullable `Accessor<TParams>`. |
 | `useSearch()` | `RouteAccessorTuple<TSearch>` | (`@skyjt/typed-routes-solid`) Returns a reactive tuple of accessors (`readonly [data: Accessor<TSearch \| undefined>, error: Accessor<RouteValidationError \| undefined>]`). Unpacked once at component setup; pair with `<Show when={search()}>` to promote `validSearch` to a non-nullable `Accessor<TSearch>`. |
 | `useLocation()` | `Location<TState>` | (`@skyjt/typed-routes-solid`) Returns the current `@solidjs/router` location object. |
-| `handler(fn)` | `TypedAPIHandler<TParams, TSearch, TResult>` | Identity helper that binds an HTTP handler function `(event: TypedAPIEvent<TParams, TSearch>) => TResult` to the route's inferred `TParams` and `TSearch` types. |
+| `handler(fn)` | `TypedAPIHandler<...>` | Zero-allocation identity helper binding an HTTP handler function to the route's inferred `params`, `search`, `headers`, and `cookies` types. |
+| `handler(config, fn)` | `ConfiguredAPIHandler<...>` | Method-scoped API handler builder accepting `{ body, headers, cookies, search, use, responses }` schemas and middleware pipelines for a specific HTTP verb. |
 
 ---
 
@@ -215,6 +219,7 @@ export const GET = route.handler((event) => {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.7.0` / `v0.6.0` | Added 2-argument `route.handler(config, fn)` overload (`body`, `headers`, `cookies`, `search`, `use`, `responses`), route-level `headers`/`cookies`/`use`, `defineMiddleware`, `json`/`text`/`noContent`/`redirect`, `HttpError`, and RPC inference types. |
 | `v0.6.0` / `v0.5.0` | Introduced `RouteAccessorTuple<T>` (`[data, error]`) accessors for `useParams()` and `useSearch()`, `RouteValidationTuple` for `preload()`, added `evaluateRouteTarget` and `createRouteAccessorTuple`, retained `onError` for telemetry. Removed `errorComponent`, `passThroughError`, and `useError()`. |
 | `v0.4.0` / `v0.3.0` | Added `route.handler()`. |
 | `v0.1.0` | Initial release of `defineRoute`. |
