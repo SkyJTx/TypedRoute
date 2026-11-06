@@ -1,5 +1,16 @@
 # @skyjt/typed-routes
 
+## 0.8.0
+
+### Minor Changes
+
+- Pluggable Runtime Adapter System & Zero-Allocation Response Envelopes:
+
+  - **Pluggable Runtime Adapters (`bun`, `node`, `standard`, custom)**: Isolated runtime-specific C++ APIs and parsing primitives (`headers.toJSON`, `"node:querystring"`, `"node:stream/consumers"`) behind a typed `RuntimeAdapter` interface (`parseQuery`, `readJson`, `readText`, `parseHeaders`). Exported presets `bunAdapter` / `presetBun()`, `nodeAdapter` / `presetNode()`, and `standardAdapter` / `presetStandard()`, alongside the `createRuntimeAdapter` factory and automatic runtime detection `resolveRuntimeAdapter`.
+  - **Zero-Allocation Static JSON Response Envelopes**: Pre-allocated and exported `STATIC_JSON_HEADERS` (`content-type: application/json; charset=utf-8`) and `STATIC_JSON_200_INIT` (`status: 200`). Updated `json()` and `toResponse()` to bypass creating fresh options dictionaries and headers on default 200 responses, reusing the static envelope directly with `new Response(JSON.stringify(data), STATIC_JSON_200_INIT)`.
+  - **Middleware Adapter Integration**: Added `adapter?: RuntimeAdapter | RuntimeAdapterPreset` to `MiddlewareOptions`. Incoming query strings and request bodies/headers delegate to the resolved adapter while maintaining strict web-standard compatibility and prototype pollution defenses.
+  - **Stream Instantiation Optimization in Bun**: Avoided evaluating the `request.body` getter when deserializing payloads via native `request.json()` or `request.text()`, preventing Bun from constructing unwanted JavaScript `ReadableStream` wrappers on the hot request path.
+
 ## 0.7.0
 
 ### Minor Changes

@@ -95,6 +95,15 @@ export class HttpError<TDetails = unknown> extends Error {
   }
 }
 
+export const STATIC_JSON_HEADERS = Object.freeze({
+  "content-type": "application/json; charset=utf-8",
+});
+
+export const STATIC_JSON_200_INIT: Readonly<ResponseInit> = Object.freeze({
+  status: 200,
+  headers: STATIC_JSON_HEADERS,
+});
+
 /**
  * Creates a JSON `Response` carrying compile-time payload and status code types.
  */
@@ -102,10 +111,24 @@ export function json<TData, TStatus extends number = 200>(
   data: TData,
   init?: TStatus | (ResponseInit & { status?: TStatus }),
 ): TypedResponse<TData, TStatus> {
+  const serialized = JSON.stringify(data);
   if (typeof init === "number") {
-    return Response.json(data, { status: init }) as TypedResponse<TData, TStatus>;
+    return new Response(serialized, {
+      status: init,
+      headers: STATIC_JSON_HEADERS,
+    }) as TypedResponse<TData, TStatus>;
   }
-  return Response.json(data, init) as TypedResponse<TData, TStatus>;
+  if (init === undefined) {
+    return new Response(serialized, STATIC_JSON_200_INIT) as TypedResponse<TData, TStatus>;
+  }
+  const headers = init.headers ? new Headers(init.headers) : STATIC_JSON_HEADERS;
+  if (headers instanceof Headers && !headers.has("content-type")) {
+    headers.set("content-type", "application/json; charset=utf-8");
+  }
+  return new Response(serialized, {
+    ...init,
+    headers,
+  }) as TypedResponse<TData, TStatus>;
 }
 
 /**

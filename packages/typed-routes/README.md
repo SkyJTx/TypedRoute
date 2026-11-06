@@ -1,6 +1,6 @@
 # `@skyjt/typed-routes`
 
-> Framework-agnostic compile-time typed routes, sync/async Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, custom parsers), URL path building, method-scoped `route.handler(config, fn)` API builders (`body`, `headers`, `cookies`, `responses`, `use`), composable middleware, typed responses, `HttpError`, and RPC type inference for [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> Framework-agnostic compile-time typed routes, sync/async Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, custom parsers), URL path building, method-scoped `route.handler(config, fn)` API builders (`body`, `headers`, `cookies`, `responses`, `use`), composable middleware, runtime adapters (`Bun`, `Node`, `Standard`), zero-allocation static JSON response envelopes, typed responses, `HttpError`, and RPC type inference for [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -94,6 +94,7 @@ import { createMiddleware } from "@skyjt/typed-routes";
 
 export const apiMiddleware = createMiddleware(routes, {
   base: "/",
+  adapter: "bun", // or "node", "standard", or custom RuntimeAdapter (auto-detected by default)
   onValidationError({ error, rawParams, rawSearch, rawBody, isPage }) {
     // Allow UI page requests (isPage === true) to proceed to SSR page rendering
     if (isPage) {

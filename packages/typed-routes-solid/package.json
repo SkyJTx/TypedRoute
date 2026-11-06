@@ -40,7 +40,7 @@
     "@skyjt/typed-routes": "workspace:^"
   },
   "peerDependencies": {
-    "@skyjt/typed-routes": "^0.7.0",
+    "@skyjt/typed-routes": "^0.7.0 || ^0.8.0",
     "@solidjs/router": ">=2.0.0-next.21",
     "@solidjs/web": ">=2.0.0-rc.6",
     "filesystem-routing": "^0.4.0",

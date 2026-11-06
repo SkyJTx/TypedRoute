@@ -14,7 +14,7 @@ import type {
 } from "~/types/route-definition";
 import { RouteValidationError } from "~/types/route-definition";
 import type { ValidationIssue } from "~/types/type-validator";
-import { EMPTY_RECORD, parseFastQueryString } from "~/schema/coercion";
+import { EMPTY_RECORD } from "~/schema/coercion";
 import {
   ROUTE_FLAG_IS_PAGE,
   ROUTE_FLAG_VALIDATION_ONLY,
@@ -31,7 +31,12 @@ import {
   HANDLER_FLAG_HAS_RESPONSES_SCHEMA,
 } from "~/debug/inspect";
 import { getAPIHandlerMeta, type CompiledAPIHandlerMeta } from "~/router/api-handler";
-import { HttpError } from "~/router/api-response";
+import { HttpError, json } from "~/router/api-response";
+import {
+  resolveRuntimeAdapter,
+  type RuntimeAdapter,
+  type RuntimeAdapterPreset,
+} from "~/adapters";
 import { parseFastUrl, type ParsedUrl } from "./url-scanner";
 import { RouteNodeMeta, isRecord, resolveRouteConfig } from "./route-meta";
 import {
@@ -61,6 +66,10 @@ export type MiddlewareNext = (request?: Request) => Response | Promise<Response>
  * Options for request middleware.
  */
 export interface MiddlewareOptions {
+  /**
+   * Runtime adapter for environment-optimized query and stream ingestion.
+   */
+  adapter?: RuntimeAdapter | RuntimeAdapterPreset;
   /**
    * Base path stripped from URLs prior to matching.
    */
@@ -143,7 +152,7 @@ function toResponse(result: unknown): Response {
   if (typeof result === "string") {
     return new Response(result);
   }
-  return Response.json(result);
+  return json(result);
 }
 
 function serializeHttpError(error: HttpError): Response {
@@ -270,6 +279,7 @@ async function executeHandlerPipeline(
   getEvent: (req?: Request) => APIEvent,
   isPage: boolean,
   next: MiddlewareNext,
+  adapter: RuntimeAdapter,
 ): Promise<Response | undefined> {
   const hFlags = handlerMeta.flags;
 
@@ -295,7 +305,7 @@ async function executeHandlerPipeline(
   }
 
   if ((hFlags & HANDLER_FLAG_HAS_HEADERS_SCHEMA) !== 0 && handlerMeta.compiledHeadersValidator) {
-    const rawHeaders = parseRequestHeaders(request.headers);
+    const rawHeaders = parseRequestHeaders(request.headers, adapter);
     const hOutcome = handlerMeta.compiledHeadersValidator(rawHeaders);
     const hResult = hOutcome instanceof Promise ? await hOutcome : hOutcome;
     if (!hResult.success) {
@@ -316,7 +326,7 @@ async function executeHandlerPipeline(
     }
     event.headers = hResult.data;
   } else if (event.headers === undefined || event.headers === EMPTY_RECORD) {
-    event.headers = parseRequestHeaders(request.headers);
+    event.headers = parseRequestHeaders(request.headers, adapter);
   }
 
   if ((hFlags & HANDLER_FLAG_HAS_COOKIES_SCHEMA) !== 0 && handlerMeta.compiledCookiesValidator) {
@@ -345,7 +355,7 @@ async function executeHandlerPipeline(
   }
 
   if ((hFlags & HANDLER_FLAG_HAS_BODY_SCHEMA) !== 0 && handlerMeta.compiledBodyValidator) {
-    const parsedBodyOutcome = await parseRequestBody(request);
+    const parsedBodyOutcome = await parseRequestBody(request, adapter);
     if (!parsedBodyOutcome.success) {
       return handleValidationFailure(
         "body",
@@ -405,6 +415,7 @@ export function createMiddleware(
   const match = createAPIMatcher(matcherRoutes);
   const getEvent = options.getEvent ?? getScopedEvent;
   const basePath = options.base ?? "/";
+  const adapter = resolveRuntimeAdapter(options.adapter);
 
   return async function typedRoutesMiddleware(
     eventOrRequest: MiddlewareInput,
@@ -447,12 +458,12 @@ export function createMiddleware(
       const pOutcome = meta.compiledParamsValidator(rawParams);
       const paramsResult = pOutcome instanceof Promise ? await pOutcome : pOutcome;
       if (!paramsResult.success) {
-        rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+        rawSearch = rawSearch ?? (searchStr ? adapter.parseQuery(searchStr) : EMPTY_RECORD);
         return handleValidationFailure(
           "params",
           paramsResult.issues ?? [],
           rawParams,
-          rawSearch,
+          (rawSearch ?? EMPTY_RECORD) as Record<string, unknown>,
           config,
           options,
           eventOrRequest,
@@ -467,7 +478,7 @@ export function createMiddleware(
 
     let validatedSearch: unknown;
     if ((flags & ROUTE_FLAG_HAS_SEARCH_SCHEMA) !== 0 && meta.compiledSearchValidator) {
-      rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+      rawSearch = rawSearch ?? (searchStr ? adapter.parseQuery(searchStr) : EMPTY_RECORD);
       const sOutcome = meta.compiledSearchValidator(rawSearch);
       const searchResult = sOutcome instanceof Promise ? await sOutcome : sOutcome;
       if (!searchResult.success) {
@@ -475,7 +486,7 @@ export function createMiddleware(
           "search",
           searchResult.issues ?? [],
           rawParams,
-          rawSearch,
+          (rawSearch ?? EMPTY_RECORD) as Record<string, unknown>,
           config,
           options,
           eventOrRequest,
@@ -487,26 +498,26 @@ export function createMiddleware(
       }
       validatedSearch = searchResult.data;
     } else if (!isValidationOnlyPage) {
-      rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+      rawSearch = rawSearch ?? (searchStr ? adapter.parseQuery(searchStr) : EMPTY_RECORD);
       validatedSearch = rawSearch;
     } else {
       validatedSearch = searchStr
-        ? (rawSearch = rawSearch ?? parseFastQueryString(searchStr))
+        ? (rawSearch = rawSearch ?? adapter.parseQuery(searchStr))
         : EMPTY_RECORD;
     }
 
     let validatedHeaders: unknown = EMPTY_RECORD;
     if ((flags & ROUTE_FLAG_HAS_HEADERS_SCHEMA) !== 0 && meta.compiledHeadersValidator) {
-      const rawHeaders = parseRequestHeaders(request.headers);
+      const rawHeaders = parseRequestHeaders(request.headers, adapter);
       const hOutcome = meta.compiledHeadersValidator(rawHeaders);
       const headersResult = hOutcome instanceof Promise ? await hOutcome : hOutcome;
       if (!headersResult.success) {
-        rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+        rawSearch = rawSearch ?? (searchStr ? adapter.parseQuery(searchStr) : EMPTY_RECORD);
         return handleValidationFailure(
           "headers",
           headersResult.issues ?? [],
           rawParams,
-          rawSearch,
+          (rawSearch ?? EMPTY_RECORD) as Record<string, unknown>,
           config,
           options,
           eventOrRequest,
@@ -526,12 +537,12 @@ export function createMiddleware(
       const cOutcome = meta.compiledCookiesValidator(rawCookies);
       const cookiesResult = cOutcome instanceof Promise ? await cOutcome : cOutcome;
       if (!cookiesResult.success) {
-        rawSearch = rawSearch ?? (searchStr ? parseFastQueryString(searchStr) : EMPTY_RECORD);
+        rawSearch = rawSearch ?? (searchStr ? adapter.parseQuery(searchStr) : EMPTY_RECORD);
         return handleValidationFailure(
           "cookies",
           cookiesResult.issues ?? [],
           rawParams,
-          rawSearch,
+          (rawSearch ?? EMPTY_RECORD) as Record<string, unknown>,
           config,
           options,
           eventOrRequest,
@@ -591,6 +602,7 @@ export function createMiddleware(
           getEvent,
           isPage,
           next,
+          adapter,
         );
         if (pipelineResponse !== undefined) {
           return pipelineResponse;

@@ -9,6 +9,7 @@ import {
   defineRoute,
   json,
   createMiddleware,
+  bunAdapter,
   type MiddlewareRouteEntry,
 } from "@skyjt/typed-routes";
 
@@ -45,9 +46,9 @@ const valItemsRoute = defineRoute({
   }),
 });
 const rawGetItems = rawItemsRoute.handler((event: any) => {
-  const url = new URL(event.request.url);
-  const category = url.searchParams.get("category") ?? "all";
-  const limit = Number(url.searchParams.get("limit") ?? 50);
+  const search = event.search ?? {};
+  const category = (search.category as string) ?? "all";
+  const limit = Number(search.limit ?? 50);
   return json({ category, limit, items: [1, 2, 3] });
 });
 const valGetItems = valItemsRoute.handler((event) => {
@@ -105,7 +106,7 @@ export const routes: MiddlewareRouteEntry[] = [
 ];
 
 const notFound = () => new Response("Not Found", { status: 404 });
-export const middleware = createMiddleware(routes);
+export const middleware = createMiddleware(routes, { adapter: bunAdapter });
 
 export async function fetch(req: Request): Promise<Response> {
   const res = await middleware(req, notFound);

@@ -194,3 +194,50 @@ $$\text{isPage} = (\text{route.page} === \text{true}) \land (\text{request.metho
 | **Pure API Route** (`src/routes/api/...`) | `false` | Any (`GET`, `POST`, `DELETE`, etc.) | `false` | Returns `400 Bad Request` JSON response (or custom `Response` returned by `onValidationError`). |
 | **UI Page Route** (`src/routes/(main)/...`) | `true` | `GET` or `HEAD` | `true` | If `onValidationError` returns `void`, sets `event.validationError = error` and calls `next()` so Solid SSR renders the page component with validation error tuples `[undefined, error]`. |
 | **Hybrid Route** (`page: true` + `export const POST`) | `true` | `POST`, `PUT`, `PATCH`, `DELETE`, `QUERY` | `false` | Treated as an API mutation (`isPage: false`); returns `400 Bad Request` JSON on invalid input. |
+
+---
+
+## 6. Runtime Adapters & Zero-Allocation Response Envelopes
+
+`createMiddleware` includes a pluggable runtime adapter system designed to take full advantage of native C++ runtime APIs (such as Bun and Node.js primitives) while remaining 100% compliant with standard Web APIs (Deno, Cloudflare Workers).
+
+### Built-in Presets
+You can specify an adapter via `options.adapter`:
+
+```ts
+import routes from "virtual:file-routes";
+import { createMiddleware, presetBun } from "@skyjt/typed-routes";
+
+export const middleware = createMiddleware(routes, {
+  // Pass string preset name or preset instance
+  adapter: "bun", // or presetBun(), "node", "standard"
+});
+```
+
+- **`"bun"` (`presetBun()` / `bunAdapter`)**: Utilizes `headers.toJSON()` for fast native header map extraction and native C++ body streams while avoiding JavaScript `ReadableStream` wrapper allocations.
+- **`"node"` (`presetNode()` / `nodeAdapter`)**: Utilizes `"node:querystring"` with prototype pollution defense and `"node:stream/consumers"` for streaming body consumption.
+- **`"standard"` (`presetStandard()` / `standardAdapter`)**: Universal pure-TypeScript web-standard implementation for Cloudflare Workers, Deno, and standards-compliant runtimes.
+- **Automatic Detection (default)**: When omitted, `createMiddleware` inspects the environment and automatically resolves to Bun, Node, or Standard fallback.
+
+### Custom Adapters
+Implement custom query or body extraction engines using `createRuntimeAdapter`:
+
+```ts
+import { createMiddleware, createRuntimeAdapter } from "@skyjt/typed-routes";
+
+const customAdapter = createRuntimeAdapter({
+  name: "custom-engine",
+  parseQuery: (query) => parseWithCustomEngine(query),
+  readJson: (req) => req.json(),
+});
+
+export const middleware = createMiddleware(routes, { adapter: customAdapter });
+```
+
+### Static Zero-Allocation Response Envelopes
+To eliminate garbage collection pressure on high-throughput JSON routes, `@skyjt/typed-routes` exports pre-allocated, frozen response headers:
+- `STATIC_JSON_HEADERS`: Frozen `Headers` with `content-type: application/json; charset=utf-8`.
+- `STATIC_JSON_200_INIT`: Frozen `ResponseInit` `{ status: 200, headers: STATIC_JSON_HEADERS }`.
+
+When returning plain objects from handlers, `json(result)` and `toResponse(result)` automatically use `STATIC_JSON_200_INIT` with `new Response(JSON.stringify(data), STATIC_JSON_200_INIT)` for default 200 responses, bypassing options object and header map allocations entirely.
+

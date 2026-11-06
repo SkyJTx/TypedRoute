@@ -48,6 +48,7 @@ function createMiddleware(
 | `routes` | `readonly MiddlewareRouteEntry[]` | **Required** | The flat route manifest array exported as the default export of `"virtual:file-routes"`. |
 | `options` | `MiddlewareOptions` | `{}` | Optional configuration for path stripping, request event resolution, and validation error handling. |
 | `options.base` | `string` | `"/"` | Base URL path prefix stripped from incoming request pathnames prior to route matching. |
+| `options.adapter` | `RuntimeAdapter \| RuntimeAdapterPreset` | Auto-detected | Runtime adapter for platform-specific query string, body, and header parsing optimizations (`"bun"`, `"node"`, `"standard"`, or custom `RuntimeAdapter`). |
 | `options.getEvent` | `() => APIEvent` | Solid `RequestContext` store | Custom supplier for the server request event when `createMiddleware` is invoked with a bare `Request` instead of a framework event object. |
 | `options.onValidationError` | `(args: OnValidationErrorArgs) => Response \| Promise<Response \| void> \| void` | `undefined` | Hook invoked when `params`, `search`, `body`, `headers`, `cookies`, or `response` validation fails. Returning a `Response` short-circuits the request chain with that response. |
 | `options.onApiError` | `(args: { error: HttpError; request: Request; event: APIEvent }) => Response \| Promise<Response \| void> \| void` | `undefined` | Hook invoked when an `HttpError` is thrown inside a middleware or API handler. Returning a `Response` overrides the default JSON serialization. |
@@ -127,6 +128,7 @@ export default createMiddleware(routes, {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.8.0` | Added pluggable `adapter` option supporting `"bun"`, `"node"`, and `"standard"` runtime presets, custom `RuntimeAdapter` implementations, environment auto-detection, and zero-allocation static response headers. |
 | `v0.7.0` | Added sync-first async validator execution (`compileAsyncValidator`), Content-Type body/header/cookie parsing and validation, composable `use` middleware chains with context merging, response schema verification, and `HttpError` / `onApiError` handling. |
 | `v0.6.2` | Added protocol-relative URL sanitization and backslash neutralization in `parseFastUrl` to defend against open redirect vulnerabilities (`//evil.com` -> `/evil.com`). |
 | `v0.6.1` | Streamlined middleware request pipeline to 1.47 µs (32% latency reduction, 35% heap reduction), monomorphic pre-compiled route validator caching on `RouteNodeMeta`, direct active `Request` reuse in `getScopedEvent`, and leading-slash ASCII short-circuit in `parseFastUrl`. |

@@ -7,6 +7,7 @@
 import { EMPTY_RECORD, parseFastQueryString } from "~/schema/coercion";
 import { ValidationOutcome } from "~/schema/validator-adapter";
 import type { ValidationResult } from "~/types/type-validator";
+import type { RuntimeAdapter } from "~/adapters/types";
 
 function isForbiddenKey(key: string): boolean {
   return key === "__proto__" || key === "constructor" || key === "prototype";
@@ -26,7 +27,13 @@ function safeDecodeComponent(str: string): string {
 /**
  * Extracts HTTP request headers into a normalized lowercase key-value record.
  */
-export function parseRequestHeaders(headers: Headers): Record<string, string | undefined> {
+export function parseRequestHeaders(
+  headers: Headers,
+  adapter?: RuntimeAdapter,
+): Record<string, string | undefined> {
+  if (adapter?.parseHeaders) {
+    return adapter.parseHeaders(headers);
+  }
   const out = Object.create(null) as Record<string, string | undefined>;
   headers.forEach((value, key) => {
     const normalizedKey = key.toLowerCase();
@@ -122,7 +129,10 @@ export function parseRequestCookies(
  * - `text/*`: raw string
  * - fallback: `ArrayBuffer`
  */
-export async function parseRequestBody(request: Request): Promise<ValidationResult<unknown>> {
+export async function parseRequestBody(
+  request: Request,
+  adapter?: RuntimeAdapter,
+): Promise<ValidationResult<unknown>> {
   const contentTypeHeader = request.headers.get("content-type");
   const contentType = contentTypeHeader ? contentTypeHeader.toLowerCase() : "";
 
@@ -132,7 +142,17 @@ export async function parseRequestBody(request: Request): Promise<ValidationResu
       contentType.includes("application/json") ||
       contentType.includes("+json")
     ) {
-      const rawText = await request.text();
+      if (adapter?.readJson) {
+        try {
+          const data = await adapter.readJson(request);
+          return ValidationOutcome.ok<unknown>(data);
+        } catch {
+          return ValidationOutcome.fail<unknown>([
+            { message: "Invalid JSON payload in request body" },
+          ]);
+        }
+      }
+      const rawText = adapter?.readText ? await adapter.readText(request) : await request.text();
       if (rawText.length === 0) {
         return ValidationOutcome.ok<unknown>(undefined);
       }
@@ -146,9 +166,10 @@ export async function parseRequestBody(request: Request): Promise<ValidationResu
     }
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
-      const rawText = await request.text();
+      const rawText = adapter?.readText ? await adapter.readText(request) : await request.text();
+      const parseQuery = adapter ? adapter.parseQuery.bind(adapter) : parseFastQueryString;
       return ValidationOutcome.ok<unknown>(
-        rawText.length > 0 ? parseFastQueryString(rawText) : EMPTY_RECORD,
+        rawText.length > 0 ? parseQuery(rawText) : EMPTY_RECORD,
       );
     }
 
