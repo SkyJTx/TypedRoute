@@ -6,6 +6,7 @@
   "workspaces": [
     "packages/*",
     "benchmarks/*",
+    "benchmarks/framework-comparison/apps/*",
     "examples/*"
   ],
   "scripts": {

@@ -1,0 +1,22 @@
+﻿{
+    "name":  "@framework-benchmark/typed-routes",
+    "version":  "0.0.0",
+    "private":  true,
+    "license":  "MPL-2.0",
+    "type":  "module",
+    "main":  "./src/app.ts",
+    "scripts":  {
+                    "start":  "bun run src/index.ts",
+                    "typecheck":  "tsc --noEmit"
+                },
+    "dependencies":  {
+                         "@skyjt/typed-routes":  "workspace:*",
+                         "filesystem-routing":  "^0.4.0",
+                         "valibot":  "^1.5.0"
+                     },
+    "devDependencies":  {
+                            "@types/bun":  "latest",
+                            "@types/node":  "^22.20.3",
+                            "typescript":  "^5.9.3"
+                        }
+}

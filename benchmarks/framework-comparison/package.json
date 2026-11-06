@@ -1,0 +1,34 @@
+{
+  "name": "@benchmarks/framework-comparison",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MPL-2.0",
+  "type": "module",
+  "scripts": {
+    "build:aot": "bun --filter @framework-benchmark/elysia build:aot",
+    "bench": "bun run build:aot && bun run src/index.ts",
+    "bench:http": "bun run build:aot && bun run src/http.bench.ts",
+    "bench:micro": "bun run build:aot && bun run src/micro.bench.ts",
+    "bench:memory": "bun run build:aot && bun run src/memory.bench.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@framework-benchmark/elysia": "workspace:*",
+    "@framework-benchmark/express": "workspace:*",
+    "@framework-benchmark/fastify": "workspace:*",
+    "@framework-benchmark/h3": "workspace:*",
+    "@framework-benchmark/hono": "workspace:*",
+    "@framework-benchmark/nest": "workspace:*",
+    "@framework-benchmark/typed-routes": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/autocannon": "^7.12.6",
+    "@types/bun": "latest",
+    "@types/node": "^22.20.3",
+    "@types/pidusage": "^2.0.5",
+    "autocannon": "^8.0.0",
+    "mitata": "^1.0.34",
+    "pidusage": "^4.1.0",
+    "typescript": "^5.9.3"
+  }
+}
