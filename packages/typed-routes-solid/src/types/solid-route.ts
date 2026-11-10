@@ -10,7 +10,10 @@ import type { Location } from "@solidjs/router";
 import type {
   APIHandlerConfig,
   APIMiddleware,
+  AppManifestMap,
   ConfiguredAPIHandler,
+  CrossAppConfigs,
+  CrossAppNavigationArgs,
   InferOutput,
   MergeMiddlewareContext,
   RouteConfig,
@@ -70,7 +73,16 @@ export interface DefinedRouteObject<
   useLocation(): Location<TState>;
   handler<TResult = unknown>(
     fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
-  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  ): ConfiguredAPIHandler<
+    TParams,
+    TSearch,
+    TResult,
+    undefined,
+    THeaders,
+    TCookies,
+    undefined,
+    undefined
+  >;
   handler<
     B extends TypeValidator<unknown, unknown> | undefined = undefined,
     H extends TypeValidator<unknown, unknown> | undefined = undefined,
@@ -85,7 +97,7 @@ export interface DefinedRouteObject<
       TParams,
       S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
       TResult,
-      InferOutput<B>,
+      B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
       H extends TypeValidator<unknown, unknown>
         ? InferOutput<H>
         : [THeaders] extends [undefined]
@@ -102,7 +114,7 @@ export interface DefinedRouteObject<
     TParams,
     S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
     TResult,
-    InferOutput<B>,
+    B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
     H extends TypeValidator<unknown, unknown>
       ? InferOutput<H>
       : [THeaders] extends [undefined]
@@ -118,10 +130,78 @@ export interface DefinedRouteObject<
   >;
 }
 
+/**
+ * Props for a local route `<Link to={...} />`.
+ */
 export type LinkProps<
   TManifest extends readonly unknown[],
   Path extends ExtractRoutePaths<TManifest>,
 > = NavigationArgs<RouteParamsFor<TManifest, Path>, RouteSearchFor<TManifest, Path>, unknown> &
   Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+    app?: undefined;
     to: Path;
   };
+
+/**
+ * Props for a cross-application `<Link app={...} to={...} />`.
+ */
+export type CrossAppLinkProps<
+  TApps extends AppManifestMap,
+  TApp extends keyof TApps & string,
+  Path extends ExtractRoutePaths<TApps[TApp]>,
+> = CrossAppNavigationArgs<
+  RouteParamsFor<TApps[TApp], Path>,
+  RouteSearchFor<TApps[TApp], Path>
+> &
+  Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+    app: TApp;
+    to: Path;
+    apps?: CrossAppConfigs<TApps>;
+  };
+
+/**
+ * Overloaded `<Link>` component supporting both local routes and cross-application routes.
+ */
+export interface TypedLinkComponent<
+  TManifest extends readonly unknown[],
+  TApps extends AppManifestMap = Record<string, never>,
+> {
+  <Path extends ExtractRoutePaths<TManifest> = ExtractRoutePaths<TManifest>>(
+    props: LinkProps<TManifest, Path>,
+  ): JSX.Element;
+  <
+    TApp extends keyof TApps & string,
+    Path extends ExtractRoutePaths<TApps[TApp]> = ExtractRoutePaths<TApps[TApp]>,
+  >(
+    props: CrossAppLinkProps<TApps, TApp, Path>,
+  ): JSX.Element;
+}
+
+/**
+ * Overloaded `navigate` function returned by `useNavigate()`, supporting both local SPA navigation
+ * (2 arguments: `to`, `options?`) and cross-application navigation (3 arguments: `app`, `to`, `options?`).
+ */
+export interface TypedNavigateFn<
+  TManifest extends readonly unknown[],
+  TApps extends AppManifestMap = Record<string, never>,
+> {
+  <Path extends ExtractRoutePaths<TManifest>>(
+    to: Path,
+    options?: NavigationArgs<
+      RouteParamsFor<TManifest, Path>,
+      RouteSearchFor<TManifest, Path>,
+      unknown
+    >,
+  ): void;
+  <
+    TApp extends keyof TApps & string,
+    Path extends ExtractRoutePaths<TApps[TApp]>,
+  >(
+    app: TApp,
+    to: Path,
+    options?: CrossAppNavigationArgs<
+      RouteParamsFor<TApps[TApp], Path>,
+      RouteSearchFor<TApps[TApp], Path>
+    >,
+  ): string;
+}

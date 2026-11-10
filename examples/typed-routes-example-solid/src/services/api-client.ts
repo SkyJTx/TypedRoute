@@ -1,47 +1,73 @@
-import type { UserRecord } from "./db";
+import type routes from "virtual:file-routes";
+import { createClient } from "@skyjt/typed-routes-solid";
+
+export const apiClient = createClient<typeof routes>();
 
 export async function fetchHealth() {
-  const res = await fetch("/api/health");
-  if (!res.ok) throw new Error("Health check failed");
-  return res.json() as Promise<{ status: string; uptime: number; timestamp: string }>;
+  const [data, error] = await apiClient.get("/api/health");
+  if (error) {
+    throw new Error(error.detail || "Health check failed");
+  }
+  return data;
 }
 
-export async function fetchUsers(params?: { q?: string; role?: string; limit?: number }) {
-  const searchParams = new URLSearchParams();
-  if (params?.q) searchParams.set("q", params.q);
-  if (params?.role && params.role !== "all") searchParams.set("role", params.role);
-  if (params?.limit) searchParams.set("limit", String(params.limit));
+export async function fetchUsers(params?: {
+  q?: string;
+  role?: "all" | "admin" | "engineer" | "operator";
+  limit?: number;
+}) {
+  const search: {
+    q?: string;
+    role?: "all" | "admin" | "engineer" | "operator";
+    limit?: number;
+  } = {};
+  if (params?.q) {
+    search.q = params.q;
+  }
+  if (params?.role && params.role !== "all") {
+    search.role = params.role;
+  }
+  if (params?.limit) {
+    search.limit = params.limit;
+  }
 
-  const queryStr = searchParams.toString();
-  const url = queryStr ? `/api/users?${queryStr}` : "/api/users";
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch users");
-  return res.json() as Promise<{ success: boolean; total: number; users: UserRecord[] }>;
+  const [data, error] = await apiClient.get("/api/users", { search });
+  if (error) {
+    throw new Error(error.detail || "Failed to fetch users");
+  }
+  return data;
 }
 
 export async function fetchUserById(id: number) {
-  const res = await fetch(`/api/users/${id}`);
-  if (!res.ok) throw new Error(`User ${id} not found`);
-  return res.json() as Promise<{ success: boolean; user: UserRecord }>;
+  const [data, error] = await apiClient.get("/api/users/:id", {
+    params: { id },
+  });
+  if (error) {
+    throw new Error(error.detail || `User ${id} not found`);
+  }
+  return data;
 }
 
-export async function createUser(data: { name: string; email: string; role: "admin" | "engineer" | "operator" }) {
-  const res = await fetch("/api/users", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+export async function createUser(input: {
+  name: string;
+  email: string;
+  role: "admin" | "engineer" | "operator";
+}) {
+  const [data, error] = await apiClient.post("/api/users", {
+    body: input,
   });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson.error || "Failed to create user");
+  if (error) {
+    throw new Error(error.detail || "Failed to create user");
   }
-  return res.json() as Promise<{ success: boolean; user: UserRecord }>;
+  return data;
 }
 
 export async function deleteUser(id: number) {
-  const res = await fetch(`/api/users/${id}`, {
-    method: "DELETE",
+  const [data, error] = await apiClient.delete("/api/users/:id", {
+    params: { id },
   });
-  if (!res.ok) throw new Error(`Failed to delete user ${id}`);
-  return res.json() as Promise<{ success: boolean; removed: UserRecord }>;
+  if (error) {
+    throw new Error(error.detail || `Failed to delete user ${id}`);
+  }
+  return data;
 }

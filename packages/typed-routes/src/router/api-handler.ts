@@ -131,7 +131,7 @@ export function registerAPIHandler<THandler>(
 ): THandler {
   if (typeof fn === "function") {
     const meta = new CompiledAPIHandlerMeta(config);
-    if (meta.flags !== HANDLER_FLAG_NONE) {
+    if (meta.flags !== HANDLER_FLAG_NONE || config.openapi !== undefined) {
       apiHandlerMetaMap.set(fn as object, meta);
     }
   }

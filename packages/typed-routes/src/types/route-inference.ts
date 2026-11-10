@@ -5,7 +5,7 @@
  */
 
 import type { InferOutput, TypeValidator } from "./type-validator";
-import type { ConfiguredAPIHandler, TypedAPIEvent } from "./route-definition";
+import type { TypedAPIEvent } from "./route-definition";
 import type { TypedResponse } from "~/router/api-response";
 
 /**
@@ -69,18 +69,61 @@ export type ExtractRoutePaths<TManifest extends readonly unknown[]> =
     : never;
 
 /**
- * Locates a route entry within a manifest tuple matching the target path.
+ * Strips a trailing slash from a route path while preserving `"/"`.
+ */
+export type StripTrailingSlash<P extends string> = P extends "/"
+  ? "/"
+  : P extends `${infer Stem}/`
+    ? Stem extends ""
+      ? "/"
+      : Stem
+    : P;
+
+type PathMatches<EntryPath extends string, TargetPath extends string> =
+  StripTrailingSlash<EntryPath> extends StripTrailingSlash<TargetPath>
+    ? StripTrailingSlash<TargetPath> extends StripTrailingSlash<EntryPath>
+      ? true
+      : false
+    : false;
+
+/**
+ * Locates a route entry within a manifest tuple matching the target path (normalized for trailing slashes).
  */
 export type FindRouteEntry<TManifest extends readonly unknown[], TargetPath extends string> =
   TManifest extends readonly [infer Head, ...infer Tail]
-    ? Head extends { path: TargetPath }
-      ? Head
-      : Head extends { children: readonly unknown[] }
-        ? FindRouteEntry<Head["children"], TargetPath> extends never
-          ? FindRouteEntry<Tail, TargetPath>
-          : FindRouteEntry<Head["children"], TargetPath>
-        : FindRouteEntry<Tail, TargetPath>
+    ? Head extends { path: infer P extends string }
+      ? PathMatches<P, TargetPath> extends true
+        ? Head
+        : Head extends { children: readonly unknown[] }
+          ? FindRouteEntry<Head["children"], TargetPath> extends never
+            ? FindRouteEntry<Tail, TargetPath>
+            : FindRouteEntry<Head["children"], TargetPath>
+          : FindRouteEntry<Tail, TargetPath>
+      : FindRouteEntry<Tail, TargetPath>
     : never;
+
+/**
+ * Extracts all route paths from a manifest that expose a given HTTP method handler.
+ * Includes both exact manifest paths (e.g., `"/api/users/"`) and trailing-slash-free paths (`"/api/users"`).
+ */
+export type PathsForMethod<
+  TManifest extends readonly unknown[],
+  Method extends "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "QUERY",
+> = TManifest extends readonly [infer Head, ...infer Tail]
+  ? (Head extends { path: infer P extends string }
+      ? (Head extends Record<`$${Method}`, unknown>
+          ? P | StripTrailingSlash<P>
+          : Method extends "HEAD"
+            ? Head extends Record<"$GET", unknown>
+              ? P | StripTrailingSlash<P>
+              : never
+            : never) |
+        (Head extends { children: readonly unknown[] }
+          ? PathsForMethod<Head["children"], Method>
+          : never)
+      : never) |
+      PathsForMethod<Tail, Method>
+  : never;
 
 /**
  * Infers parameter types for a specified route path in the manifest.
@@ -205,19 +248,17 @@ type InferDeclaredResponseUnion<TResponses> =
  * Infers the discriminated `{ status, data }` response union produced by a `route.handler(...)` export.
  */
 export type InferHandlerOutput<THandler> =
-  THandler extends ConfiguredAPIHandler<
-    unknown,
-    unknown,
-    infer TResult,
-    unknown,
-    unknown,
-    unknown,
-    Record<string, unknown>,
-    infer TResponses
-  >
-    ? [TResponses] extends [Record<number, TypeValidator<unknown, unknown>>]
-      ? UnwrapHandlerResult<TResult> | InferDeclaredResponseUnion<TResponses>
-      : UnwrapHandlerResult<TResult>
+  THandler extends {
+    readonly _rpcMeta?: {
+      readonly result: infer TResult;
+      readonly responses: infer TResponses;
+    };
+  }
+    ? [NonNullable<TResponses>] extends [never]
+      ? UnwrapHandlerResult<TResult>
+      : [TResponses] extends [Record<number, TypeValidator<unknown, unknown>>]
+        ? UnwrapHandlerResult<TResult> | InferDeclaredResponseUnion<TResponses>
+        : UnwrapHandlerResult<TResult>
     : THandler extends (...args: never[]) => infer TResult
       ? UnwrapHandlerResult<TResult>
       : never;

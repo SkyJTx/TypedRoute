@@ -85,3 +85,44 @@ export function SearchToolbar() {
 > - If a route defines `params: v.object({ id: v.number() })` in `defineRoute`, `RouteParamsFor` infers `{ id: number }`.
 > - If a dynamic route `/posts/:slug` does **not** export `defineRoute({ params })`, `RouteParamsFor` automatically falls back to `ExtractPathParams<"/posts/:slug">`, inferring `{ slug: string | number }`.
 > - `RouteSearchFor` automatically wraps schema output keys in `Partial<...>`, allowing callers to omit keys that have schema defaults (`v.optional(v.string(), "")`).
+
+---
+
+## Cross-App Typed Navigation
+
+In multi-application or micro-frontend monorepos, pass an `apps` map to `createRouter<typeof pageRoutes, { docs: typeof docsRoutes }>()` (or standalone `createPaths()`) to unlock unified 2-argument local and 3-argument cross-app overloads:
+
+```ts
+// src/router.ts
+import { pageRoutes } from "virtual:file-routes";
+import type { pageRoutes as docsRoutes } from "../../docs-app/file-routes";
+import { createRouter, interceptFileRoutes } from "@skyjt/typed-routes-solid";
+
+export const { Router, Link, useNavigate, paths } = createRouter<
+  typeof pageRoutes,
+  { docs: typeof docsRoutes }
+>({
+  routes: interceptFileRoutes(pageRoutes),
+  apps: {
+    docs: {
+      baseUrl: "https://docs.example.com",
+      target: "_blank",
+    },
+  },
+});
+```
+
+```tsx
+// Local vs Cross-App usage
+paths.build("/users/:id", { params: { id: 42 } });
+paths.build("docs", "/guides/:slug", { params: { slug: "getting-started" } });
+
+const navigate = useNavigate();
+navigate("/users/:id", { params: { id: 42 } });
+navigate("docs", "/guides/:slug", { params: { slug: "getting-started" } });
+
+<Link to="/users/:id" params={{ id: 42 }}>Profile</Link>
+<Link app="docs" to="/guides/:slug" params={{ slug: "getting-started" }}>
+  Read Guide
+</Link>
+```

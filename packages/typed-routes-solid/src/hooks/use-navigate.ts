@@ -7,31 +7,73 @@
 import { useNavigate as nativeUseNavigate } from "@solidjs/router";
 import {
   buildUrl,
-  type ExtractRoutePaths,
-  type RouteParamsFor,
-  type RouteSearchFor,
-  type NavigationArgs,
+  navigateCrossApp,
+  type AppManifestMap,
+  type CrossAppConfigs,
+  type ExternalAppConfig,
 } from "@skyjt/typed-routes";
+import type { TypedNavigateFn } from "~/types/solid-route";
 
 /**
- * Returns a navigation function constrained by route manifest paths and schemas.
+ * Returns a navigation function constrained by local and cross-application route manifests.
+ *
+ * - 2-argument call `navigate(to, options?)`: executes client-side SPA navigation on `TManifest`.
+ * - 3-argument call `navigate(app, to, options?)`: executes cross-application navigation on `TApps[TApp]`.
  */
-export function useNavigate<TManifest extends readonly unknown[]>() {
+export function useNavigate<
+  TManifest extends readonly unknown[],
+  TApps extends AppManifestMap = Record<string, never>,
+>(apps?: CrossAppConfigs<TApps>): TypedNavigateFn<TManifest, TApps> {
   const nativeNavigate = nativeUseNavigate();
 
-  return <Path extends ExtractRoutePaths<TManifest>>(
-    to: Path,
-    options?: NavigationArgs<RouteParamsFor<TManifest, Path>, RouteSearchFor<TManifest, Path>, unknown>,
-  ) => {
-    const url = buildUrl(to as string, {
-      params: options?.params as Record<string, unknown> | undefined,
-      search: options?.search as Record<string, unknown> | undefined,
-      hash: options?.hash,
+  function navigate(
+    firstArg: string,
+    secondArg?: unknown,
+    thirdArg?: unknown,
+  ): string | void {
+    if (typeof secondArg === "string") {
+      const appConfig = (apps as Record<string, ExternalAppConfig | undefined> | undefined)?.[
+        firstArg
+      ];
+      if (!appConfig) {
+        throw new Error(
+          `Unknown external application "${firstArg}". Register its baseUrl in createRouter({ apps }).`,
+        );
+      }
+      const crossOpts = thirdArg as
+        | {
+            params?: Record<string, unknown>;
+            search?: Record<string, unknown>;
+            hash?: string;
+            replace?: boolean;
+            target?: "_self" | "_blank" | "_parent" | "_top" | (string & {});
+          }
+        | undefined;
+      return navigateCrossApp(appConfig, secondArg, crossOpts);
+    }
+
+    const localOpts = secondArg as
+      | {
+          params?: Record<string, unknown>;
+          search?: Record<string, unknown>;
+          hash?: string;
+          replace?: boolean;
+          scroll?: boolean;
+          state?: unknown;
+        }
+      | undefined;
+
+    const url = buildUrl(firstArg, {
+      params: localOpts?.params,
+      search: localOpts?.search,
+      hash: localOpts?.hash,
     });
     nativeNavigate(url, {
-      replace: options?.replace,
-      scroll: options?.scroll,
-      state: options?.state,
+      replace: localOpts?.replace,
+      scroll: localOpts?.scroll,
+      state: localOpts?.state,
     });
-  };
+  }
+
+  return navigate as TypedNavigateFn<TManifest, TApps>;
 }

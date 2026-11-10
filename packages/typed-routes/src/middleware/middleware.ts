@@ -31,7 +31,20 @@ import {
   HANDLER_FLAG_HAS_RESPONSES_SCHEMA,
 } from "~/debug/inspect";
 import { getAPIHandlerMeta, type CompiledAPIHandlerMeta } from "~/router/api-handler";
-import { HttpError, json } from "~/router/api-response";
+import { HttpError, getTypedResponseBody, json } from "~/router/api-response";
+import {
+  createOpenAPIHandler,
+  type OpenAPIHandlerController,
+} from "~/openapi";
+import type {
+  ApiErrorHandler,
+  OpenAPIOptions,
+  ValidationErrorHandler,
+} from "~/types/openapi";
+import {
+  defaultOnApiError,
+  defaultOnValidationError,
+} from "./error-handlers";
 import {
   resolveRuntimeAdapter,
   type RuntimeAdapter,
@@ -97,11 +110,12 @@ export interface MiddlewareOptions {
    * Callback invoked when an `HttpError` is thrown inside a middleware or API handler.
    * Returning a custom `Response` overrides the default JSON error serialization.
    */
-  onApiError?: (args: {
-    error: HttpError;
-    request: Request;
-    event: APIEvent;
-  }) => Response | Promise<Response | void> | void;
+  onApiError?: ApiErrorHandler;
+  /**
+   * Optional OpenAPI 3.1 specification and interactive documentation UI configuration.
+   * When enabled, automatically reflects `TypedResponse` schemas and custom `onValidationError` / `onApiError` handlers.
+   */
+  openapi?: OpenAPIOptions | boolean;
 }
 
 const RequestContext = Symbol.for("solid.RequestContext");
@@ -155,19 +169,7 @@ function toResponse(result: unknown): Response {
   return json(result);
 }
 
-function serializeHttpError(error: HttpError): Response {
-  const payload: Record<string, unknown> = {
-    error: error.message,
-    status: error.status,
-  };
-  if (error.code !== undefined) {
-    payload.code = error.code;
-  }
-  if (error.details !== undefined) {
-    payload.details = error.details;
-  }
-  return Response.json(payload, { status: error.status });
-}
+
 
 /**
  * Orchestrates error callbacks (`config.onError`, `options.onValidationError`) and builds
@@ -225,14 +227,16 @@ async function handleValidationFailure(
     return next();
   }
 
-  return Response.json(
-    {
-      error: "Validation Failed",
-      target,
-      issues,
-    },
-    { status: 400 },
-  );
+  return defaultOnValidationError({
+    error,
+    rawParams,
+    rawSearch,
+    rawBody: extraContext?.rawBody,
+    rawHeaders: extraContext?.rawHeaders,
+    rawCookies: extraContext?.rawCookies,
+    request,
+    isPage,
+  }) as Response;
 }
 
 async function runMiddlewareChain(
@@ -417,6 +421,19 @@ export function createMiddleware(
   const basePath = options.base ?? "/";
   const adapter = resolveRuntimeAdapter(options.adapter);
 
+  let openApiController: OpenAPIHandlerController | undefined;
+  if (options.openapi !== undefined && options.openapi !== false) {
+    const baseOpenApiOptions: OpenAPIOptions =
+      typeof options.openapi === "object" ? { ...options.openapi } : {};
+    if (baseOpenApiOptions.onValidationError === undefined && options.onValidationError !== undefined) {
+      baseOpenApiOptions.onValidationError = options.onValidationError as ValidationErrorHandler;
+    }
+    if (baseOpenApiOptions.onApiError === undefined && options.onApiError !== undefined) {
+      baseOpenApiOptions.onApiError = options.onApiError;
+    }
+    openApiController = createOpenAPIHandler(routes, baseOpenApiOptions);
+  }
+
   return async function typedRoutesMiddleware(
     eventOrRequest: MiddlewareInput,
     next: MiddlewareNext,
@@ -424,6 +441,19 @@ export function createMiddleware(
     const request = extractRequest(eventOrRequest);
     const method = request.method;
     const parsedUrl = parseFastUrl(request.url, basePath);
+
+    if (
+      openApiController !== undefined &&
+      (method === "GET" || method === "HEAD") &&
+      (parsedUrl.pathname === openApiController.specPath ||
+        parsedUrl.pathname === openApiController.docsPath)
+    ) {
+      const openApiResponse = await openApiController.handle(request);
+      if (openApiResponse !== undefined) {
+        return openApiResponse;
+      }
+    }
+
     const matched = match(parsedUrl.pathname, method);
 
     if (!matched) {
@@ -621,7 +651,10 @@ export function createMiddleware(
           const responseValidator = handlerMeta.compiledResponseValidators.get(response.status);
           if (responseValidator !== undefined) {
             let payloadToValidate: unknown = result;
-            if (result instanceof Response) {
+            const typedBody = getTypedResponseBody(response);
+            if (typedBody.hasBody) {
+              payloadToValidate = typedBody.body;
+            } else if (result instanceof Response) {
               const ct = response.headers.get("content-type") ?? "";
               if (ct.includes("application/json") || ct.includes("+json")) {
                 try {
@@ -667,7 +700,11 @@ export function createMiddleware(
             return customErrorResponse;
           }
         }
-        return serializeHttpError(err);
+        return defaultOnApiError({
+          error: err,
+          request,
+          event,
+        });
       }
       throw err;
     }

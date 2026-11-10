@@ -24,7 +24,8 @@ export default function Navigation() {
 
 | Prop | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `to` | `ExtractRoutePaths<TManifest>` | **Required** | Target route path literal from `pageRoutes` (for example, `"/"`, `"/users/"`, `"/users/:id"`). |
+| `app` | `keyof TApps` | `undefined` | Optional target external application key registered in `createRouter(..., { apps })` for cross-app navigation. |
+| `to` | `ExtractRoutePaths<TManifest>` | **Required** | Target route path literal from `pageRoutes` (or from `TApps[AppName]` when `app` is specified). |
 | `params` | `RouteParamsFor<TManifest, Path>` | Conditional | Object containing dynamic path parameters. **Required** when the route path contains `:param` or `*wildcard` segments; disallowed on static paths. |
 | `search` | `RouteSearchFor<TManifest, Path>` | `undefined` | Optional search query object. Keys are inferred as `Partial<InferOutput<TSearchSchema>>` when the target route defines a `search` schema. |
 | `hash` | `string` | `undefined` | Optional URL hash fragment (with or without leading `#`). |
@@ -88,5 +89,6 @@ export function RoleFilterTabs() {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.7.0` | Added `app` prop overload (`<Link app="..." to="...">`) for cross-app typed navigation with automatic external `target="_blank"` and `rel="noopener noreferrer"` attributes. |
 | `v0.3.0` | Fixed `RouteParamsFor` and `RouteSearchFor` so routes without explicit schemas infer path parameters and allow optional search queries without casts. |
 | `v0.1.0` | Initial release of `<Link>` in `@skyjt/typed-routes-solid`. |

@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import { createRouter } from "~/router/create-router";
 import { Link } from "~/components/link";
 
-describe("Router, Link, and useNavigate API", () => {
+describe("Router, Link, and useNavigate API (Local & Cross-App)", () => {
   const mockManifest = [
     {
       path: "/",
@@ -20,18 +20,42 @@ describe("Router, Link, and useNavigate API", () => {
     },
   ] as const;
 
-  it("creates router instance exposing Link, useNavigate, and zero-cast paths.build", () => {
-    const router = createRouter<typeof mockManifest>({
+  const adminManifest = [
+    {
+      path: "/",
+      page: true,
+    },
+    {
+      path: "/audit/:reportId",
+      page: true,
+    },
+  ] as const;
+
+  type AppRegistry = {
+    admin: typeof adminManifest;
+  };
+
+  it("creates router instance exposing Link, useNavigate, and unified local + cross-app paths.build", () => {
+    const router = createRouter<typeof mockManifest, AppRegistry>({
       routes: [
         { path: "/", component: () => "Home" },
         { path: "/users/:id", component: () => "User" },
       ],
+      apps: {
+        admin: { baseUrl: "https://admin.example.com" },
+      },
     });
 
     expect(router.Router).toBeDefined();
     expect(router.Link).toBeDefined();
     expect(router.useNavigate).toBeDefined();
     expect(router.paths.build("/users/:id", { params: { id: 42 } })).toBe("/users/42");
+    expect(
+      router.paths.build("admin", "/audit/:reportId", {
+        params: { reportId: "rep-9" },
+        search: { format: "pdf" },
+      }),
+    ).toBe("https://admin.example.com/audit/rep-9?format=pdf");
   });
 
   it("builds href with params and search options in Link without casts", () => {

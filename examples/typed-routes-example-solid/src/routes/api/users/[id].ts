@@ -8,25 +8,43 @@ export const route = defineRoute({
   }),
 });
 
-export const GET = route.handler(async (event) => {
-  const userId = event.params.id;
-  const user = usersStore.find((u) => u.id === userId);
+export const GET = route.handler(
+  {
+    openapi: {
+      summary: "Get Personnel by ID",
+      tags: ["Users"],
+      operationId: "getUserById",
+    },
+  },
+  async (event) => {
+    const userId = event.params.id;
+    const user = usersStore.find((u) => u.id === userId);
 
-  if (!user) {
-    throw HttpError.notFound("User not found");
-  }
+    if (!user) {
+      throw HttpError.notFound("User not found");
+    }
 
-  return json({ success: true, user });
-});
+    return json({ success: true, user });
+  },
+);
 
-export const DELETE = route.handler(async (event) => {
-  const userId = event.params.id;
-  const index = usersStore.findIndex((u) => u.id === userId);
+export const DELETE = route.handler(
+  {
+    openapi: {
+      summary: "Delete Personnel by ID",
+      tags: ["Users"],
+      operationId: "deleteUserById",
+    },
+  },
+  async (event) => {
+    const userId = event.params.id;
+    const index = usersStore.findIndex((u) => u.id === userId);
 
-  if (index === -1) {
-    throw HttpError.notFound("User not found");
-  }
+    if (index === -1) {
+      throw HttpError.notFound("User not found");
+    }
 
-  const [removed] = usersStore.splice(index, 1);
-  return json({ success: true, removed });
-});
+    const [removed] = usersStore.splice(index, 1);
+    return json({ success: true, removed });
+  },
+);

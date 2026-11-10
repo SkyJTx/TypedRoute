@@ -10,8 +10,8 @@
 
 | Package | Version | Description |
 | :--- | :--- | :--- |
-| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.7.0` | Framework-agnostic routing core: sync/async schema validation (`StandardSchemaV1`, Valibot, Zod), coercion, path builder (`buildUrl`), `route.handler(config, fn)` (`body`, `headers`, `cookies`, `responses`, `use`), `defineMiddleware`, `json`/`HttpError` helpers, RPC type inference, `createMiddleware`, and Vite plugin. |
-| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.6.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter`, `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), `<Link>`, `useNavigate`, full API route helpers, and Solid SSR Vite plugin. |
+| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.9.0` | Framework-agnostic routing core: sync/async schema validation (`StandardSchemaV1`, Valibot, Zod), path & cross-app URL builder (`buildUrl`, `createPaths`), `route.handler(config, fn)` (`body`, `headers`, `cookies`, `responses`, `use`, `openapi`), OpenAPI 3.1 generator & interactive UI (`generateOpenAPISpec`, `createOpenAPIHandler`), End-to-End Type Safety `[data, error]` Request Client (`createClient`), RFC 9457 Problem Details (`problem`), runtime adapters (`bun`, `node`, `standard`), `createMiddleware`, and Vite plugin. |
+| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.7.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter` (with cross-app `apps` config), `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), local & cross-app `<Link>` and `useNavigate`, `createClient`, OpenAPI 3.1 helpers, and Solid SSR Vite plugin. |
 
 ---
 
@@ -41,11 +41,13 @@ Browse the full documentation and API Reference in [`./docs`](./docs/index.md):
 ## Quick Start (SolidJS 2.0)
 
 1. **Install packages**:
+
    ```bash
    bun add @skyjt/typed-routes @skyjt/typed-routes-solid filesystem-routing solid-js @solidjs/router @solidjs/web valibot
    ```
 
 2. **Configure `vite.config.ts`**:
+
    ```ts
    import { defineConfig } from "vite";
    import solid from "@solidjs/vite-plugin";
@@ -60,6 +62,7 @@ Browse the full documentation and API Reference in [`./docs`](./docs/index.md):
    ```
 
 3. **Initialize the Router (`src/router.ts`)**:
+
    ```ts
    import { pageRoutes } from "virtual:file-routes";
    import { createRouter, interceptFileRoutes } from "@skyjt/typed-routes-solid";
@@ -70,6 +73,7 @@ Browse the full documentation and API Reference in [`./docs`](./docs/index.md):
    ```
 
 4. **Define a Validated Page Route (`src/routes/(main)/users/[id].tsx`)**:
+
    ```tsx
    import * as v from "valibot";
    import { Show } from "solid-js";
@@ -104,6 +108,7 @@ Browse the full documentation and API Reference in [`./docs`](./docs/index.md):
    ```
 
 5. **Define a Typed API Route (`src/routes/api/users/[id].ts`)**:
+
    ```ts
    import * as v from "valibot";
    import { defineRoute, json } from "@skyjt/typed-routes-solid";

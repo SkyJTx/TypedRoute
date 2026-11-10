@@ -3,32 +3,13 @@ import { createMiddleware } from "@skyjt/typed-routes-solid";
 
 export const apiMiddleware = createMiddleware(routes, {
   base: "/",
-  onValidationError({ error, rawParams, rawSearch, rawBody, isPage }) {
-    if (isPage) {
-      return;
-    }
-    return Response.json(
-      {
-        success: false,
-        error: "Route Validation Error",
-        target: error.target,
-        issues: error.issues,
-        received: { params: rawParams, search: rawSearch, body: rawBody },
-      },
-      { status: 400 },
-    );
-  },
-  onApiError({ error }) {
-    return Response.json(
-      {
-        success: false,
-        error: error.message,
-        status: error.status,
-        ...(error.code !== undefined ? { code: error.code } : {}),
-        ...(error.details !== undefined ? { details: error.details } : {}),
-      },
-      { status: error.status },
-    );
+  openapi: {
+    info: {
+      title: "TypedRoute Solid Example API",
+      version: "1.0.0",
+      description: "End-to-end type-safe API powered by @skyjt/typed-routes-solid",
+    },
+    ui: "scalar",
   },
 });
 

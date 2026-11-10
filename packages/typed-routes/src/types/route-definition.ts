@@ -5,6 +5,7 @@
  */
 
 import type { InferOutput, TypeValidator } from "./type-validator";
+import type { OpenAPIOperationMeta } from "./openapi";
 
 /**
  * Target segment of a route or API request where validation was performed.
@@ -207,6 +208,7 @@ export interface APIHandlerConfig<
   search?: S;
   use?: M;
   responses?: R;
+  openapi?: OpenAPIOperationMeta;
 }
 
 /**
@@ -276,6 +278,7 @@ export interface RouteConfig<
     rawSearch: Record<string, unknown>;
   }) => void;
   info?: Record<string, unknown>;
+  openapi?: OpenAPIOperationMeta;
 }
 
 /**
@@ -303,7 +306,16 @@ export interface DefinedRouteConfig<
   >;
   handler<TResult = unknown>(
     fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
-  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  ): ConfiguredAPIHandler<
+    TParams,
+    TSearch,
+    TResult,
+    undefined,
+    THeaders,
+    TCookies,
+    undefined,
+    undefined
+  >;
   handler<
     B extends TypeValidator<unknown, unknown> | undefined = undefined,
     H extends TypeValidator<unknown, unknown> | undefined = undefined,
@@ -318,7 +330,7 @@ export interface DefinedRouteConfig<
       TParams,
       S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
       TResult,
-      InferOutput<B>,
+      B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
       H extends TypeValidator<unknown, unknown>
         ? InferOutput<H>
         : [THeaders] extends [undefined]
@@ -335,7 +347,7 @@ export interface DefinedRouteConfig<
     TParams,
     S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
     TResult,
-    InferOutput<B>,
+    B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
     H extends TypeValidator<unknown, unknown>
       ? InferOutput<H>
       : [THeaders] extends [undefined]

@@ -1,6 +1,6 @@
 # `@skyjt/typed-routes-solid`
 
-> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), preloading, method-scoped API handlers (`body`, `headers`, `cookies`, `use`, `responses`), `json` / `HttpError` utilities, and safe navigation powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, local & cross-app navigation (`<Link>`, `useNavigate`, `paths`), reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), method-scoped API handlers (`body`, `headers`, `cookies`, `use`, `responses`, `openapi`), OpenAPI 3.1 documentation, and the End-to-End Type Safety `[data, error]` Request Client (`createClient`) powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -12,13 +12,14 @@ See the full [TypedRoute Documentation](../../docs/index.md):
 
 - [Installation & Setup](../../docs/01-getting-started/01-installation.md)
 - [Defining Routes](../../docs/02-routing/01-defining-routes.md)
-- [Linking and Navigating](../../docs/02-routing/02-linking-and-navigating.md)
+- [Linking and Navigating (Local & Cross-App)](../../docs/02-routing/02-linking-and-navigating.md)
 - [Error Handling (`RouteAccessorTuple` & `[data, error]`)](../../docs/02-routing/03-error-handling.md)
-- [Route Handlers and Middleware (`route.handler`, `use`, `HttpError`, & `isPage`)](../../docs/02-routing/04-route-handlers-and-middleware.md)
+- [Route Handlers, OpenAPI 3.1, and Middleware (`route.handler`, `use`, `HttpError`, & `isPage`)](../../docs/02-routing/04-route-handlers-and-middleware.md)
 - [API Reference: `<Link>`](../../docs/03-api-reference/01-components/link.md)
 - [API Reference: `defineRoute`](../../docs/03-api-reference/03-functions/define-route.md)
-- [API Reference: `createMiddleware`](../../docs/03-api-reference/03-functions/create-middleware.md)
+- [API Reference: `createMiddleware` & OpenAPI 3.1](../../docs/03-api-reference/03-functions/create-middleware.md)
 - [API Reference: `createRouter` & `interceptFileRoutes`](../../docs/03-api-reference/03-functions/create-router.md)
+- [API Reference: `useNavigate`, `createPaths`, & `createClient`](../../docs/03-api-reference/03-functions/use-navigate-and-paths.md)
 
 ---
 
@@ -32,7 +33,7 @@ bun add @skyjt/typed-routes @skyjt/typed-routes-solid filesystem-routing solid-j
 
 ## Quick Usage
 
-### 1. Router Initialization (`src/router.ts`)
+### 1. Router Initialization with Optional Cross-App Targets (`src/router.ts`)
 
 ```ts
 import { pageRoutes } from "virtual:file-routes";
@@ -83,58 +84,39 @@ export default function UserDetailPage() {
 }
 ```
 
-### 3. Typed API Route Handler (`src/routes/api/users/index.ts`)
+### 3. End-to-End Type Safety `[data, error]` Request Client (`src/services/api-client.ts`)
 
 ```ts
-import * as v from "valibot";
-import { defineRoute, HttpError, json } from "@skyjt/typed-routes-solid";
+import type routes from "virtual:file-routes";
+import { createClient } from "@skyjt/typed-routes-solid";
 
-export const route = defineRoute({
-  search: v.object({
-    limit: v.optional(v.number(), 20),
-  }),
-});
+export const apiClient = createClient<typeof routes>();
 
-export const GET = route.handler(async (event) => {
-  return json({ limit: event.search.limit, users: [] });
-});
-
-export const POST = route.handler(
-  {
-    body: v.object({
-      name: v.pipe(v.string(), v.nonEmpty()),
-      email: v.pipe(v.string(), v.email()),
-    }),
-  },
-  async (event) => {
-    if (event.body.email.endsWith("@blocked.test")) {
-      throw HttpError.forbidden("Domain is restricted");
-    }
-    return json({ created: event.body }, 201);
-  },
-);
+export async function fetchUserById(id: number) {
+  const [data, error] = await apiClient.get("/api/users/:id", {
+    params: { id },
+  });
+  if (error) {
+    throw new Error(error.detail || `User ${id} not found`);
+  }
+  return data;
+}
 ```
 
-### 4. Server Middleware (`src/middleware.ts`)
+### 4. Server Middleware with OpenAPI 3.1 & Scalar UI (`src/middleware.ts`)
 
 ```ts
 import routes from "virtual:file-routes";
 import { createMiddleware } from "@skyjt/typed-routes-solid";
 
 export default createMiddleware(routes, {
-  onValidationError({ error, rawParams, rawSearch, rawBody, isPage }) {
-    if (isPage) {
-      return;
-    }
-    return Response.json(
-      {
-        error: "Route Validation Error",
-        target: error.target,
-        issues: error.issues,
-        received: { params: rawParams, search: rawSearch, body: rawBody },
-      },
-      { status: 400 },
-    );
+  base: "/",
+  openapi: {
+    info: {
+      title: "TypedRoute Solid API",
+      version: "1.0.0",
+    },
+    ui: "scalar", // Serves interactive Scalar API Reference at GET /docs and spec at GET /openapi.json
   },
 });
 ```

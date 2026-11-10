@@ -480,8 +480,11 @@ describe("Complete Core API Routes Suite", () => {
       const errRes = await mw(new Request("http://localhost/api/actions?mode=not-found"), passNext);
       expect(errRes.status).toBe(404);
       expect(await errRes.json()).toEqual({
-        error: "Record missing",
+        type: "about:blank",
+        title: "Not Found",
         status: 404,
+        detail: "Record missing",
+        instance: "/api/actions",
         code: "ERR_MISSING",
         details: { lookup: "meropide" },
       });
@@ -490,8 +493,11 @@ describe("Complete Core API Routes Suite", () => {
         new Request("http://localhost/api/actions?mode=invalid-response"),
         passNext,
       );
-      expect(badOutputRes.status).toBe(400);
-      expect((await badOutputRes.json()).target).toBe("response");
+      expect(badOutputRes.status).toBe(500);
+      const badOutputBody = await badOutputRes.json();
+      expect(badOutputBody.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(badOutputBody.title).toBe("Response Validation Failed");
+      expect(badOutputBody.target).toBe("response");
     });
 
     it("supports static HttpError factories and custom onApiError callback", async () => {

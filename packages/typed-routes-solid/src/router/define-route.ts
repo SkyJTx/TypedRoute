@@ -22,6 +22,7 @@ import {
   type TypeValidator,
   type InferOutput,
   type TypedAPIHandler,
+  type OpenAPIOperationMeta,
 } from "@skyjt/typed-routes";
 import type {
   DefinedRouteObject,
@@ -106,7 +107,16 @@ export class SolidDefinedRoute<
 
   public handler<TResult = unknown>(
     fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
-  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  ): ConfiguredAPIHandler<
+    TParams,
+    TSearch,
+    TResult,
+    undefined,
+    THeaders,
+    TCookies,
+    undefined,
+    undefined
+  >;
   public handler<
     B extends TypeValidator<unknown, unknown> | undefined = undefined,
     H extends TypeValidator<unknown, unknown> | undefined = undefined,
@@ -121,7 +131,7 @@ export class SolidDefinedRoute<
       TParams,
       S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
       TResult,
-      InferOutput<B>,
+      B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
       H extends TypeValidator<unknown, unknown>
         ? InferOutput<H>
         : [THeaders] extends [undefined]
@@ -138,7 +148,7 @@ export class SolidDefinedRoute<
     TParams,
     S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
     TResult,
-    InferOutput<B>,
+    B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
     H extends TypeValidator<unknown, unknown>
       ? InferOutput<H>
       : [THeaders] extends [undefined]
@@ -201,6 +211,7 @@ export function defineRoute<
     rawSearch: Record<string, unknown>;
   }) => void;
   info?: Record<string, unknown>;
+  openapi?: OpenAPIOperationMeta;
 }): DefinedRouteObject<
   InferOutput<P>,
   InferOutput<S>,

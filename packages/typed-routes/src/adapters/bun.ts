@@ -91,4 +91,4 @@ export function presetBun(): RuntimeAdapter {
   };
 }
 
-export const bunAdapter: RuntimeAdapter = presetBun();
+export const bunAdapter: RuntimeAdapter = /* @__PURE__ */ presetBun();

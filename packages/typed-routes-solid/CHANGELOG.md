@@ -1,5 +1,19 @@
 # @skyjt/typed-routes-solid
 
+## 0.7.0
+
+### Minor Changes
+
+- Cross-App Typed Navigation (`createRouter`, `<Link>`, `useNavigate`, `paths`), End-to-End Type Safety `[data, error]` Request Client, and OpenAPI 3.1 Re-Exports:
+
+  - **Cross-App Navigation in `createRouter`, `useNavigate`, `paths`, and `<Link>`**: Extended `createRouter(routes, { apps })` with unified 2-argument local and 3-argument cross-app overloads on `paths.build`, `paths.href`, and `useNavigate()`, plus polymorphic `<Link app="..." to="..." params={...} search={...}>` rendering native `<a>` tags with automatic external `target="_blank"` and `rel="noopener noreferrer"` attributes for cross-origin apps.
+  - **Full Re-Export of Request Client, OpenAPI 3.1, Cross-App & RFC 9457 Utilities**: Re-exported `createClient`, `normalizeProblemDetails`, `problem`, `getHttpStatusTitle`, `createPaths`, `buildCrossAppUrl`, `navigateCrossApp`, `joinBaseAndPath`, `generateOpenAPISpec`, `createOpenAPIHandler`, `renderOpenAPIUI`, `schemaToJsonSchema`, `inferJsonSchemaFromValue`, `resolveOpenAPIErrorContracts`, `defaultOnValidationError`, `defaultOnApiError`, `TYPED_RESPONSE_BODY`, and `getTypedResponseBody` directly from `@skyjt/typed-routes-solid`.
+
+### Patch Changes
+
+- Updated dependencies:
+  - `@skyjt/typed-routes@0.9.0`
+
 ## 0.6.0
 
 ### Minor Changes

@@ -17,6 +17,7 @@ import {
   ROUTE_FLAG_NONE,
   ROUTE_FLAG_IS_PAGE,
   ROUTE_FLAG_VALIDATION_ONLY,
+  ROUTE_FLAG_CONFIG_RESOLVED,
 } from "~/debug/inspect";
 import { RouteNodeMeta, extractRouteConfig } from "./route-meta";
 
@@ -52,6 +53,16 @@ function returnEmptyHandlers(): Record<string, APIHandler> {
 const UNREGISTERED_HEAD_PLACEHOLDER: APIHandlerRef = Object.freeze({
   require: returnEmptyHandlers,
 });
+
+const UNCONFIGURED_PAGE_REF: APIHandlerRef = Object.freeze({
+  require: returnEmptyHandlers,
+});
+
+const UNCONFIGURED_PAGE_META = new RouteNodeMeta(
+  { path: "/", page: true },
+  ROUTE_FLAG_IS_PAGE | ROUTE_FLAG_VALIDATION_ONLY | ROUTE_FLAG_CONFIG_RESOLVED,
+  undefined,
+);
 
 /**
  * Normalizes a filesystem-routing path template into the radix3 pattern format.
@@ -119,7 +130,9 @@ export function buildMatcherAndMetadata(routes: readonly MiddlewareRouteEntry[])
   handlerMetadata: WeakMap<APIHandlerRef, RouteNodeMeta>;
 } {
   const handlerMetadata = new WeakMap<APIHandlerRef, RouteNodeMeta>();
+  handlerMetadata.set(UNCONFIGURED_PAGE_REF, UNCONFIGURED_PAGE_META);
   const seenRadixPaths = new Set<string>();
+  const configuredPageRadixPaths = new Set<string>();
   const routeLen = routes.length;
 
   for (let i = 0; i < routeLen; i++) {
@@ -136,6 +149,8 @@ export function buildMatcherAndMetadata(routes: readonly MiddlewareRouteEntry[])
     );
     if (hasAnyHttp) {
       seenRadixPaths.add(toRadixPath(route.path));
+    } else if (route.page === true && route.$$route) {
+      configuredPageRadixPaths.add(toRadixPath(route.path));
     }
   }
 
@@ -174,20 +189,25 @@ export function buildMatcherAndMetadata(routes: readonly MiddlewareRouteEntry[])
       entry.$HEAD = UNREGISTERED_HEAD_PLACEHOLDER;
     }
 
-    if (!hasStandardHttp && !hasAdditionalHttp && route.page === true && route.$$route) {
+    if (!hasStandardHttp && !hasAdditionalHttp && route.page === true) {
       const radixPath = toRadixPath(route.path);
       if (radixPath && !seenRadixPaths.has(radixPath) && !/:[^/]*\?/g.test(radixPath)) {
-        seenRadixPaths.add(radixPath);
-        const pageValidationRef: APIHandlerRef = { require: returnEmptyHandlers };
-        entry.$GET = pageValidationRef;
-        handlerMetadata.set(
-          pageValidationRef,
-          new RouteNodeMeta(
-            route,
-            ROUTE_FLAG_IS_PAGE | ROUTE_FLAG_VALIDATION_ONLY,
-            eagerConfig,
-          ),
-        );
+        if (route.$$route) {
+          seenRadixPaths.add(radixPath);
+          const pageValidationRef: APIHandlerRef = { require: returnEmptyHandlers };
+          entry.$GET = pageValidationRef;
+          handlerMetadata.set(
+            pageValidationRef,
+            new RouteNodeMeta(
+              route,
+              ROUTE_FLAG_IS_PAGE | ROUTE_FLAG_VALIDATION_ONLY,
+              eagerConfig,
+            ),
+          );
+        } else if (!configuredPageRadixPaths.has(radixPath) && !radixPath.includes("*")) {
+          seenRadixPaths.add(radixPath);
+          entry.$GET = UNCONFIGURED_PAGE_REF;
+        }
       }
     }
 

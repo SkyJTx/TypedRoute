@@ -1,4 +1,4 @@
-# `useNavigate`, `buildUrl`, and `validateData`
+# `useNavigate`, `createPaths`, `createClient`, `buildUrl`, and `validateData`
 
 Core navigation, URL serialization, and Universal Schema validation utilities exported by `@skyjt/typed-routes` and `@skyjt/typed-routes-solid`.
 
@@ -120,10 +120,52 @@ if (result.success) {
 
 ---
 
+## `createPaths(options?)` & Cross-App URL Builders
+
+Creates a standalone typed path builder and navigation helper supporting both 2-argument local calls and 3-argument cross-app calls:
+
+```ts
+import type mainRoutes from "virtual:file-routes";
+import type docsRoutes from "../../docs-app/file-routes";
+import { createPaths } from "@skyjt/typed-routes";
+
+export const paths = createPaths<typeof mainRoutes, { docs: typeof docsRoutes }>({
+  baseUrl: "",
+  apps: {
+    docs: { baseUrl: "https://docs.example.com", target: "_blank" },
+  },
+});
+
+paths.build("/users/:id", { params: { id: 1 } });
+paths.build("docs", "/guides/:slug", { params: { slug: "intro" } });
+```
+
+---
+
+## `createClient(options?)`
+
+Creates a method-first End-to-End Type Safety Request Client bound to a route manifest. Every method (`get`, `post`, `put`, `patch`, `delete`, `head`, `options`, `query`) resolves to a `Promise<[data, null] | [null, ProblemDetails]>` tuple:
+
+```ts
+import type routes from "virtual:file-routes";
+import { createClient } from "@skyjt/typed-routes";
+
+export const api = createClient<typeof routes>({
+  baseUrl: "http://localhost:3000",
+});
+
+const [data, error] = await api.get("/api/users/:id", {
+  params: { id: 1 },
+});
+```
+
+---
+
 ## Version History
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.9.0` | Added `createPaths`, `buildCrossAppUrl`, `navigateCrossApp`, 3-argument cross-app `useNavigate(app, to, options?)` overloads, and `createClient<typeof routes>()` returning `[data, error]` tuples with RFC 9457 `ProblemDetails`. |
 | `v0.6.3` | Replaced `LruCache` wrapper with bounded native `Map` FIFO eviction, added single-parameter builder specialization (`buildSingleRequiredParamUrl`), and added IEEE-754 finite numeric parameter validation (`RangeError` on `NaN` / `Infinity / -Infinity`). |
 | `v0.6.2` | Replaced unbounded builder cache with `MAX_BUILDER_CACHE_SIZE = 2048` bounded `LruCache`, exported `clearBuilderCache` and `getBuilderCacheSize`, and added prototype pollution defense in query parameter coercion. |
 | `v0.6.1` | Added zero-options fast path (`options === undefined`) in `buildUrl`, returning static paths with near-zero latency. |

@@ -10,24 +10,34 @@ export const route = defineRoute({
   }),
 });
 
-export const GET = route.handler(async (event) => {
-  const { q, role, limit } = event.search;
+export const GET = route.handler(
+  {
+    openapi: {
+      summary: "List Personnel",
+      description: "Filters personnel records by search query, role, and limit.",
+      tags: ["Users"],
+      operationId: "listUsers",
+    },
+  },
+  async (event) => {
+    const { q, role, limit } = event.search;
 
-  const query = q.toLowerCase();
-  let list = usersStore.filter(
-    (u) => u.name.toLowerCase().includes(query) || u.email.toLowerCase().includes(query),
-  );
+    const query = q.toLowerCase();
+    let list = usersStore.filter(
+      (u) => u.name.toLowerCase().includes(query) || u.email.toLowerCase().includes(query),
+    );
 
-  if (role !== "all") {
-    list = list.filter((u) => u.role === role);
-  }
+    if (role !== "all") {
+      list = list.filter((u) => u.role === role);
+    }
 
-  return json({
-    success: true,
-    total: list.length,
-    users: list.slice(0, limit),
-  });
-});
+    return json({
+      success: true,
+      total: list.length,
+      users: list.slice(0, limit),
+    });
+  },
+);
 
 const createUserBodySchema = v.object({
   name: v.pipe(v.string(), v.nonEmpty("Name is required")),
@@ -37,6 +47,12 @@ const createUserBodySchema = v.object({
 
 export const POST = route.handler(
   {
+    openapi: {
+      summary: "Create Personnel Record",
+      description: "Registers a new personnel record in the directory.",
+      tags: ["Users"],
+      operationId: "createUser",
+    },
     body: createUserBodySchema,
   },
   async (event) => {

@@ -41,6 +41,7 @@ export { RouteValidationError } from "./types/route-definition";
 
 export type {
   NormalizePath,
+  StripTrailingSlash,
   PathSegments,
   ExtractPathParams,
   Simplify,
@@ -49,11 +50,65 @@ export type {
   RouteSearchFor,
   NavigationArgs,
   FindRouteEntry,
+  PathsForMethod,
   InferHandlerInput,
   InferHandlerOutput,
   InferHandlerData,
   RouteMethodHandlerFor,
 } from "./types/route-inference";
+
+export type {
+  ProblemDetails,
+  ValidationProblemDetails,
+  ProblemOptions,
+} from "./types/problem-details";
+export { getHttpStatusTitle } from "./types/problem-details";
+
+export type {
+  AppManifestMap,
+  CrossAppNavigationOptions,
+  ExternalAppConfig,
+  CrossAppConfigs,
+  PathBuildOptions,
+  CrossAppNavigationArgs,
+  TypedPaths,
+} from "./types/cross-app";
+
+export type {
+  OpenAPIExternalDocs,
+  OpenAPIOperationMeta,
+  JsonSchemaObject,
+  OpenAPIParameterObject,
+  OpenAPIMediaTypeObject,
+  OpenAPIRequestBodyObject,
+  OpenAPIResponseObject,
+  OpenAPIOperationObject,
+  OpenAPIPathItemObject,
+  OpenAPIInfoObject,
+  OpenAPIServerObject,
+  OpenAPITagObject,
+  OpenAPIDocument,
+  ValidationErrorHandler,
+  ApiErrorHandler,
+  OpenAPIUIVendorPreset,
+  OpenAPIUIRendererContext,
+  CustomOpenAPIUIRenderer,
+  OpenAPIUIOption,
+  OpenAPIGeneratorConfig,
+  OpenAPIOptions,
+  ProbedErrorContract,
+  ResolvedOpenAPIErrorContracts,
+} from "./types/openapi";
+
+export type {
+  ClientHttpMethod,
+  ClientResultTuple,
+  RequestClientOptions,
+  ClientRequestOptions,
+  ClientMethodArgs,
+  ClientMethodData,
+  TypedRequestClient,
+} from "./types/request-client";
 
 export {
   EMPTY_RECORD,
@@ -84,15 +139,24 @@ export {
   getAPIHandlerMeta,
 } from "./router/api-handler";
 export {
+  TYPED_RESPONSE_META,
+  TYPED_RESPONSE_BODY,
+  attachTypedResponseMeta,
+  getTypedResponseBody,
+  getTypedResponseMeta,
   HttpError,
   json,
+  problem,
   text,
   noContent,
   redirect,
   STATIC_JSON_HEADERS,
+  STATIC_PROBLEM_HEADERS,
   STATIC_JSON_200_INIT,
   type TypedResponse,
+  type TypedResponseRuntimeMeta,
   type HttpErrorOptions,
+  type JsonResponseInit,
 } from "./router/api-response";
 export {
   SEGMENT_STATIC,
@@ -108,7 +172,20 @@ export {
   type CompiledPathBuilder,
   type PathBuilderDebugInfo,
 } from "./router/path-builder";
+export {
+  joinBaseAndPath,
+  buildCrossAppUrl,
+  navigateCrossApp,
+  createPaths,
+} from "./router/cross-app";
 
+export {
+  type ValidationErrorHandlerArgs,
+  type ApiErrorHandlerArgs,
+  extractRequestPathname,
+  defaultOnValidationError,
+  defaultOnApiError,
+} from "./middleware/error-handlers";
 export {
   type ParsedUrl,
   RouteNodeMeta,
@@ -137,6 +214,24 @@ export {
   parseRequestCookies,
   parseRequestHeaders,
 } from "./middleware/request-parsers";
+
+export {
+  schemaToJsonSchema,
+  inferJsonSchemaFromValue,
+  DEFAULT_PROBLEM_DETAILS_SCHEMA,
+  DEFAULT_VALIDATION_PROBLEM_DETAILS_SCHEMA,
+  resolveOpenAPIErrorContracts,
+  toOpenAPIPath,
+  generateOpenAPISpec,
+  renderOpenAPIUI,
+  createOpenAPIHandler,
+  type OpenAPIHandlerController,
+} from "./openapi";
+
+export {
+  createClient,
+  normalizeProblemDetails,
+} from "./client/request-client";
 
 export {
   CUSTOM_INSPECT_SYMBOL,

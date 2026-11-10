@@ -75,10 +75,11 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.success).toBe(false);
-      expect(json.error).toBe("Route Validation Error");
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.title).toBe("Bad Request");
+      expect(json.status).toBe(400);
       expect(json.target).toBe("search");
-      expect(json.received.search).toEqual({ role: "invalid_role" });
+      expect(Array.isArray(json.issues)).toBe(true);
     });
 
     it("rejects non-numeric limit search parameter on GET /api/users with 400 Bad Request", async () => {
@@ -86,9 +87,10 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.success).toBe(false);
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.status).toBe(400);
       expect(json.target).toBe("search");
-      expect(json.received.search).toEqual({ limit: "not-a-number" });
+      expect(Array.isArray(json.issues)).toBe(true);
     });
 
     it("rejects non-numeric path parameter on GET /api/users/:id with 400 Bad Request", async () => {
@@ -96,10 +98,11 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.success).toBe(false);
-      expect(json.error).toBe("Route Validation Error");
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.title).toBe("Bad Request");
+      expect(json.status).toBe(400);
       expect(json.target).toBe("params");
-      expect(json.received.params).toEqual({ id: "not-a-number" });
+      expect(Array.isArray(json.issues)).toBe(true);
     });
 
     it("rejects non-numeric path parameter on DELETE /api/users/:id with 400 Bad Request", async () => {
@@ -107,7 +110,8 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.success).toBe(false);
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.status).toBe(400);
       expect(json.target).toBe("params");
     });
 
@@ -116,8 +120,10 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.success).toBe(false);
-      expect(json.error).toBe("User not found");
+      expect(json.type).toBe("about:blank");
+      expect(json.title).toBe("Not Found");
+      expect(json.status).toBe(404);
+      expect(json.detail).toBe("User not found");
     });
 
     it("rejects POST /api/users with missing required fields with 400 Bad Request", async () => {
@@ -129,7 +135,9 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.success).toBe(false);
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.status).toBe(400);
+      expect(json.target).toBe("body");
     });
   });
 
@@ -169,6 +177,24 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       expect(html).toContain("Personnel Profile #");
     });
 
+    it("renders static sibling UI page GET /users/new without triggering /users/:id validation error", async () => {
+      const warnSpy = vi.spyOn(console, "warn");
+      try {
+        const req = new Request("http://localhost:3000/users/new");
+        const res = await app.fetch(req);
+        expect(res.status).toBe(200);
+        const html = await res.text();
+        expect(html).toContain("Register New Operator");
+        expect(warnSpy).not.toHaveBeenCalledWith(
+          "[Route Validation] Invalid parameter for /users/:id:",
+          expect.anything(),
+          expect.anything(),
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
     it("renders UI validation error fallback on invalid UI path parameter GET /users/d during SSR without 500 error", async () => {
       const req = new Request("http://localhost:3000/users/d");
       const res = await app.fetch(req);
@@ -185,6 +211,33 @@ describe("TypedRoute Solid 2 RC Example — Comprehensive Integration Suite", ()
       const html = await res.text();
       expect(html).toContain("Invalid Directory Filter");
       expect(html).toContain("Reset Directory Filters");
+    });
+  });
+
+  describe("4. OpenAPI 3.1 Specification & UI (with Dynamic Error Handler Reflection)", () => {
+    it("serves OpenAPI 3.1.0 JSON at GET /openapi.json reflecting custom onValidationError and onApiError", async () => {
+      const req = new Request("http://localhost:3000/openapi.json");
+      const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
+      expect(res.status).toBe(200);
+      const spec = await res.json();
+      expect(spec.openapi).toBe("3.1.0");
+      expect(spec.info.title).toBe("TypedRoute Solid Example API");
+      expect(spec.paths["/api/health"]?.get?.operationId).toBe("getHealth");
+      expect(spec.paths["/api/users"]?.get?.operationId).toBe("listUsers");
+      expect(spec.paths["/api/users"]?.post?.operationId).toBe("createUser");
+      expect(spec.paths["/api/users/{id}"]?.get?.operationId).toBe("getUserById");
+      expect(spec.paths["/api/users/{id}"]?.delete?.operationId).toBe("deleteUserById");
+      expect(spec.components?.schemas?.ValidationProblemDetails).toBeDefined();
+      expect(spec.components?.schemas?.ProblemDetails).toBeDefined();
+    });
+
+    it("serves Scalar OpenAPI UI HTML at GET /docs", async () => {
+      const req = new Request("http://localhost:3000/docs");
+      const res = await apiMiddleware(req, () => new Response("Not found", { status: 404 }));
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("@scalar/api-reference");
+      expect(html).toContain("/openapi.json");
     });
   });
 });

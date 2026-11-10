@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import { presetNode } from "~/adapters/node";
 import { createMiddleware } from "~/middleware/middleware";
 import { defineRoute } from "~/router/define-route";
 import * as v from "valibot";
@@ -298,7 +299,10 @@ describe("Request Middleware (createMiddleware)", () => {
 
       expect(response.status).toBe(400);
       const json = await response.json();
-      expect(json.error).toBe("Validation Failed");
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.title).toBe("Bad Request");
+      expect(json.status).toBe(400);
+      expect(json.instance).toBe("/api/users/not-a-number");
       expect(json.target).toBe("params");
       expect(onErrorMock).toHaveBeenCalledTimes(1);
       expect(onErrorMock.mock.calls[0][0].error.rawParams).toEqual({ id: "not-a-number" });
@@ -373,9 +377,48 @@ describe("Request Middleware (createMiddleware)", () => {
 
       expect(response.status).toBe(400);
       const json = await response.json();
-      expect(json.error).toBe("Validation Failed");
+      expect(json.type).toBe("https://datatracker.ietf.org/doc/html/rfc9457");
+      expect(json.title).toBe("Bad Request");
+      expect(json.status).toBe(400);
+      expect(json.instance).toBe("/api/filter/invalid-version");
       expect(json.target).toBe("params");
       expect(nextMock).not.toHaveBeenCalled();
+    });
+
+    it("does not shadow static page routes without $$route (/users/new) with parametric sibling page routes (/users/:id)", async () => {
+      const onErrorMock = vi.fn();
+      const userDetailRoute = defineRoute({
+        params: v.object({
+          id: v.number(),
+        }),
+        onError: onErrorMock,
+      });
+
+      const routes = [
+        {
+          path: "/(main)/users/:id",
+          page: true,
+          $$route: {
+            require: () => ({ route: userDetailRoute }),
+          },
+        },
+        {
+          path: "/(main)/users/new",
+          page: true,
+        },
+      ] as const;
+
+      const middleware = createMiddleware(routes);
+      const nextMock = vi.fn().mockResolvedValue(new Response("New User Page", { status: 200 }));
+      const event = {
+        request: new Request("http://localhost:3000/users/new"),
+      } as Record<string, unknown> & { request: Request };
+
+      const response = await middleware(event, nextMock);
+      expect(response.status).toBe(200);
+      expect(onErrorMock).not.toHaveBeenCalled();
+      expect(event.validationError).toBeUndefined();
+      expect(nextMock).toHaveBeenCalledTimes(1);
     });
 
     it("allows custom onValidationError response and passes isPage flag", async () => {
@@ -553,6 +596,21 @@ describe("Request Middleware (createMiddleware)", () => {
       expect(headRes.status).toBe(200);
       expect(await headRes.text()).toBe("HEAD Fallback");
       expect(nextMock).toHaveBeenCalledWith();
+    });
+
+    it("resolves presetNode adapter without top-level static node:* imports", async () => {
+      const adapter = presetNode();
+      expect(adapter.name).toBe("node");
+      expect(adapter.parseQuery("?role=admin&q=alice")).toEqual({
+        role: "admin",
+        q: "alice",
+      });
+      const jsonReq = new Request("http://localhost:3000/api/users", {
+        method: "POST",
+        body: JSON.stringify({ name: "Alice" }),
+        headers: { "content-type": "application/json" },
+      });
+      expect(await adapter.readJson?.(jsonReq)).toEqual({ name: "Alice" });
     });
   });
 });

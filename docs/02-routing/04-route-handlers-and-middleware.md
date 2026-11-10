@@ -7,6 +7,7 @@ TypedRoute allows you to define type-safe HTTP API handlers in `src/routes/api/`
 ## 1. Defining Typed API Route Handlers (`route.handler`)
 
 `route.handler` supports two overloads:
+
 - **1-Argument Overload (`route.handler(fn)`)**: Zero-allocation identity binding to the route's shared `params`, `search`, `headers`, and `cookies` schemas.
 - **2-Argument Overload (`route.handler(config, fn)`)**: Scopes `body`, `headers`, `cookies`, `search`, `use` (middleware), and `responses` schemas to an individual HTTP verb (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `QUERY`).
 
@@ -59,6 +60,7 @@ export const DELETE = route.handler(() => {
 ```
 
 > **Good to know**:
+>
 > - **Automatic Content-Type Body Decoding**: When `body` is configured on `route.handler(config, fn)`, `createMiddleware` automatically decodes `application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`, `text/*`, and binary `ArrayBuffer` payloads. Malformed JSON returns a clean `400 Bad Request` validation error (`target: "body"`).
 > - **Lowercase Header Keys**: Per the WHATWG Fetch `Headers` specification, incoming header names are normalized to lowercase (`"authorization"`, `"x-api-version"`). Always define header schema keys in lowercase.
 > - **Sync-First Async Validation**: Both synchronous and asynchronous `StandardSchemaV1` / function validators are supported in `createMiddleware`. Synchronous schemas execute with zero `Promise` or microtask overhead.
@@ -104,6 +106,7 @@ export const GET = route.handler(
 ## 3. Typed Response Helpers, `HttpError`, & RPC Type Inference
 
 ### Response Helpers & `HttpError`
+
 - `json(data, statusOrInit?)`: Returns `TypedResponse<TData, TStatus>` (`application/json`).
 - `text(data, statusOrInit?)`: Returns `TypedResponse<TText, TStatus>` (`text/plain; charset=utf-8`).
 - `noContent(init?)`: Returns `TypedResponse<null, 204>`.
@@ -111,6 +114,7 @@ export const GET = route.handler(
 - `HttpError`: Throw `HttpError.badRequest()`, `HttpError.unauthorized()`, `HttpError.forbidden()`, `HttpError.notFound()`, `HttpError.conflict()`, `HttpError.unprocessable()`, `HttpError.internal()`, or `new HttpError(status, message, { code, details })`.
 
 ### End-to-End Compile-Time RPC Inference
+
 Extract input and output contracts from any handler export with zero runtime bundle overhead:
 
 ```ts
@@ -202,6 +206,7 @@ $$\text{isPage} = (\text{route.page} === \text{true}) \land (\text{request.metho
 `createMiddleware` includes a pluggable runtime adapter system designed to take full advantage of native C++ runtime APIs (such as Bun and Node.js primitives) while remaining 100% compliant with standard Web APIs (Deno, Cloudflare Workers).
 
 ### Built-in Presets
+
 You can specify an adapter via `options.adapter`:
 
 ```ts
@@ -220,6 +225,7 @@ export const middleware = createMiddleware(routes, {
 - **Automatic Detection (default)**: When omitted, `createMiddleware` inspects the environment and automatically resolves to Bun, Node, or Standard fallback.
 
 ### Custom Adapters
+
 Implement custom query or body extraction engines using `createRuntimeAdapter`:
 
 ```ts
@@ -235,9 +241,62 @@ export const middleware = createMiddleware(routes, { adapter: customAdapter });
 ```
 
 ### Static Zero-Allocation Response Envelopes
+
 To eliminate garbage collection pressure on high-throughput JSON routes, `@skyjt/typed-routes` exports pre-allocated, frozen response headers:
+
 - `STATIC_JSON_HEADERS`: Frozen `Headers` with `content-type: application/json; charset=utf-8`.
 - `STATIC_JSON_200_INIT`: Frozen `ResponseInit` `{ status: 200, headers: STATIC_JSON_HEADERS }`.
 
 When returning plain objects from handlers, `json(result)` and `toResponse(result)` automatically use `STATIC_JSON_200_INIT` with `new Response(JSON.stringify(data), STATIC_JSON_200_INIT)` for default 200 responses, bypassing options object and header map allocations entirely.
 
+---
+
+## 7. OpenAPI 3.1 Specification, Interactive UI & Dynamic Error Reflection
+
+Enable OpenAPI 3.1.0 generation and interactive documentation UI directly in `createMiddleware` via `options.openapi`, or standalone via `generateOpenAPISpec` and `createOpenAPIHandler`:
+
+```ts
+// src/middleware.ts
+import routes from "virtual:file-routes";
+import { createMiddleware } from "@skyjt/typed-routes-solid";
+
+export const apiMiddleware = createMiddleware(routes, {
+  base: "/",
+  openapi: {
+    path: "/openapi.json",
+    docsPath: "/docs",
+    ui: "scalar", // "scalar" | "swagger" | "redoc" | "elements" | CustomOpenAPIUIRenderer | false
+    info: {
+      title: "Fortress Operations API",
+      version: "1.0.0",
+    },
+  },
+});
+```
+
+- **Zero-Allocation `TYPED_RESPONSE_BODY` Tagging**: `json(data, statusOrInit)` attaches the raw payload reference via the `TYPED_RESPONSE_BODY` symbol on the returned `Response` with zero `Object.defineProperty` or wrapper object overhead.
+- **Dynamic Error Handler Reflection (`resolveOpenAPIErrorContracts`)**: Both default RFC 9457 error handlers (`defaultOnValidationError`, `defaultOnApiError`) and any custom `onValidationError` / `onApiError` callbacks returning `json(...)` or `problem(...)` are probed once at startup and automatically reflected into `components.schemas` and `400` / `500` operation responses in `/openapi.json`.
+
+---
+
+## 8. End-to-End Type Safety `[data, error]` Request Client (`createClient`)
+
+Use `createClient<typeof routes>()` to call your API routes with full compile-time path, parameter, query, request body, and response type safety. Every request resolves to a `Promise<[data, null] | [null, ProblemDetails]>` tuple:
+
+```ts
+import type routes from "virtual:file-routes";
+import { createClient } from "@skyjt/typed-routes-solid";
+
+export const apiClient = createClient<typeof routes>();
+
+const [data, error] = await apiClient.get("/api/users/:id", {
+  params: { id: 1 },
+});
+
+if (error) {
+  // Conforms to RFC 9457 ProblemDetails: { type, title, status, detail, instance }
+  console.error(error.status, error.title, error.detail);
+} else {
+  console.log(data.user);
+}
+```

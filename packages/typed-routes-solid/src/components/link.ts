@@ -6,34 +6,95 @@
 
 import { Dynamic, type JSX } from "@solidjs/web";
 import { createComponent } from "solid-js";
-import { buildUrl, type ExtractRoutePaths } from "@skyjt/typed-routes";
-import type { LinkProps } from "~/types/solid-route";
+import {
+  buildCrossAppUrl,
+  buildUrl,
+  type AppManifestMap,
+  type CrossAppConfigs,
+  type ExternalAppConfig,
+  type ExtractRoutePaths,
+} from "@skyjt/typed-routes";
+import type {
+  CrossAppLinkProps,
+  LinkProps,
+  TypedLinkComponent,
+} from "~/types/solid-route";
+
+interface InternalLinkProps extends Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
+  app?: string;
+  to: string;
+  params?: Record<string, unknown>;
+  search?: Record<string, unknown>;
+  hash?: string;
+  apps?: Record<string, ExternalAppConfig>;
+}
 
 /**
- * Link component deriving target routes and parameters from the route manifest.
+ * Creates a `<Link>` component bound to optional external application configurations.
+ */
+export function createBoundLink<
+  TManifest extends readonly unknown[],
+  TApps extends AppManifestMap = Record<string, never>,
+>(boundApps?: CrossAppConfigs<TApps>): TypedLinkComponent<TManifest, TApps> {
+  function BoundLink(rawProps: InternalLinkProps): JSX.Element {
+    const href = (): string => {
+      const appName = rawProps.app;
+      if (typeof appName === "string" && appName.length > 0) {
+        const activeApps =
+          rawProps.apps ??
+          (boundApps as Record<string, ExternalAppConfig | undefined> | undefined);
+        const appConfig = activeApps?.[appName];
+        if (!appConfig) {
+          throw new Error(
+            `Unknown external application "${appName}". Register its baseUrl in createRouter({ apps }) or pass apps to <Link>.`,
+          );
+        }
+        return buildCrossAppUrl(appConfig.baseUrl, rawProps.to, {
+          params: rawProps.params,
+          search: rawProps.search,
+          hash: rawProps.hash,
+        });
+      }
+
+      return buildUrl(rawProps.to, {
+        params: rawProps.params,
+        search: rawProps.search,
+        hash: rawProps.hash,
+      });
+    };
+
+    return createComponent(Dynamic, {
+      component: "a",
+      get href() {
+        return href();
+      },
+      class: rawProps.class,
+      target: rawProps.target,
+      rel: rawProps.rel,
+      onClick: rawProps.onClick,
+      get children() {
+        return rawProps.children;
+      },
+    });
+  }
+
+  return BoundLink as unknown as TypedLinkComponent<TManifest, TApps>;
+}
+
+/**
+ * Link component deriving target routes and parameters from the local or cross-app route manifest.
  */
 export function Link<
   TManifest extends readonly unknown[],
   Path extends ExtractRoutePaths<TManifest> = ExtractRoutePaths<TManifest>,
->(props: LinkProps<TManifest, Path>): JSX.Element {
-  const href = () =>
-    buildUrl(props.to as string, {
-      params: props.params as Record<string, unknown> | undefined,
-      search: props.search as Record<string, unknown> | undefined,
-      hash: props.hash,
-    });
-
-  return createComponent(Dynamic, {
-    component: "a",
-    get href() {
-      return href();
-    },
-    class: props.class,
-    target: props.target,
-    rel: props.rel,
-    onClick: props.onClick,
-    get children() {
-      return props.children;
-    },
-  });
+>(props: LinkProps<TManifest, Path>): JSX.Element;
+export function Link<
+  TApps extends AppManifestMap,
+  TApp extends keyof TApps & string,
+  Path extends ExtractRoutePaths<TApps[TApp]> = ExtractRoutePaths<TApps[TApp]>,
+>(props: CrossAppLinkProps<TApps, TApp, Path>): JSX.Element;
+export function Link(props: InternalLinkProps): JSX.Element {
+  return (createBoundLink<readonly unknown[]>() as (p: InternalLinkProps) => JSX.Element)(
+    props,
+  );
 }

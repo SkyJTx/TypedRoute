@@ -51,7 +51,8 @@ function createMiddleware(
 | `options.adapter` | `RuntimeAdapter \| RuntimeAdapterPreset` | Auto-detected | Runtime adapter for platform-specific query string, body, and header parsing optimizations (`"bun"`, `"node"`, `"standard"`, or custom `RuntimeAdapter`). |
 | `options.getEvent` | `() => APIEvent` | Solid `RequestContext` store | Custom supplier for the server request event when `createMiddleware` is invoked with a bare `Request` instead of a framework event object. |
 | `options.onValidationError` | `(args: OnValidationErrorArgs) => Response \| Promise<Response \| void> \| void` | `undefined` | Hook invoked when `params`, `search`, `body`, `headers`, `cookies`, or `response` validation fails. Returning a `Response` short-circuits the request chain with that response. |
-| `options.onApiError` | `(args: { error: HttpError; request: Request; event: APIEvent }) => Response \| Promise<Response \| void> \| void` | `undefined` | Hook invoked when an `HttpError` is thrown inside a middleware or API handler. Returning a `Response` overrides the default JSON serialization. |
+| `options.onApiError` | `(args: { error: HttpError; request: Request; event: APIEvent }) => Response \| Promise<Response \| void> \| void` | `defaultOnApiError` | Hook invoked when an `HttpError` is thrown inside a middleware or API handler. Defaults to RFC 9457 `application/problem+json`. |
+| `options.openapi` | `OpenAPIOptions \| boolean` | `undefined` | When configured, automatically mounts `GET /openapi.json` (OpenAPI 3.1.0 spec) and `GET /docs` (interactive Scalar, Swagger, Redoc, Elements, or custom UI) and reflects `onValidationError` / `onApiError` contracts into the OpenAPI specification. |
 
 #### `onValidationError` Arguments
 
@@ -128,6 +129,7 @@ export default createMiddleware(routes, {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.9.0` | Added built-in `openapi` option (`generateOpenAPISpec`, `createOpenAPIHandler`, `renderOpenAPIUI`), RFC 9457 Problem Details defaults (`defaultOnValidationError`, `defaultOnApiError`, `problem()`), dynamic OpenAPI error contract reflection, static page route precedence (`UNCONFIGURED_PAGE_REF`), zero-allocation `TYPED_RESPONSE_BODY` symbol tagging, and browser-safe `presetNode` resolution via `process.getBuiltinModule`. |
 | `v0.8.0` | Added pluggable `adapter` option supporting `"bun"`, `"node"`, and `"standard"` runtime presets, custom `RuntimeAdapter` implementations, environment auto-detection, and zero-allocation static response headers. |
 | `v0.7.0` | Added sync-first async validator execution (`compileAsyncValidator`), Content-Type body/header/cookie parsing and validation, composable `use` middleware chains with context merging, response schema verification, and `HttpError` / `onApiError` handling. |
 | `v0.6.2` | Added protocol-relative URL sanitization and backslash neutralization in `parseFastUrl` to defend against open redirect vulnerabilities (`//evil.com` -> `/evil.com`). |

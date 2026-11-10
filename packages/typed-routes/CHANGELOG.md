@@ -1,5 +1,23 @@
 # @skyjt/typed-routes
 
+## 0.9.0
+
+### Minor Changes
+
+- Cross-App Typed Navigation, OpenAPI 3.1 Specification & Interactive UI, and End-to-End Type Safety `[data, error]` Request Client with RFC 9457 Problem Details:
+
+  - **Cross-App Typed Navigation (`createPaths`, `buildCrossAppUrl`, `navigateCrossApp`)**: Added unified 2-argument local (`paths.build(path, options?)`) and 3-argument cross-app (`paths.build(app, path, options?)`) URL building and navigation (`paths.href`, `navigateCrossApp`), automatic `target="_blank"` + `rel="noopener noreferrer"` resolution, and safe base/path joining (`joinBaseAndPath`).
+  - **OpenAPI 3.1 Specification, Interactive UI & Dynamic Error Reflection (`generateOpenAPISpec`, `createOpenAPIHandler`, `renderOpenAPIUI`)**: Added zero-dependency Standard Schema V1 / Valibot / Zod to JSON Schema Draft 2020-12 conversion (`schemaToJsonSchema`), runtime `TypedResponse` sample value inference (`inferJsonSchemaFromValue`), automatic reflection of custom `onValidationError` / `onApiError` handlers (`resolveOpenAPIErrorContracts`), and built-in Scalar, Swagger UI, Redoc, Stoplight Elements, and custom UI rendering at `/openapi.json` and `/docs` via `MiddlewareOptions.openapi`.
+  - **End-to-End Type Safety `[data, error]` Request Client & RFC 9457 Problem Details (`createClient`, `problem`, `normalizeProblemDetails`)**: Added method-first `createClient<typeof routes>()` returning `Promise<[data, null] | [null, ProblemDetails]>` with automatic path parameter interpolation, query serialization, JSON body encoding, and RFC 9457 Problem Details normalization. Updated `defaultOnValidationError` and `defaultOnApiError` to emit standard `application/problem+json` responses.
+
+### Patch Changes
+
+- Static Page Route Shadowing Fix, Zero-Allocation `TYPED_RESPONSE_BODY` Tagging, and Browser-Safe `presetNode`:
+
+  - **Static Page Route Precedence in `buildMatcherAndMetadata`**: Registered unconfigured UI page routes (`page: true` without `$$route` or HTTP handlers) in `radix3` via shared `UNCONFIGURED_PAGE_REF` and `UNCONFIGURED_PAGE_META` sentinels so static page routes (`/users/new`) are never shadowed by parametric sibling page routes (`/users/:id`).
+  - **Zero-Allocation `TYPED_RESPONSE_BODY` Symbol Tagging**: Replaced `Object.defineProperty` descriptor allocations in `json()` with direct `TYPED_RESPONSE_BODY` symbol assignment on `Response` and lazy body parsing in `getTypedResponseMeta`, preserving `18,912 req/sec` middleware throughput.
+  - **Browser-Safe `presetNode` Runtime Adapter**: Replaced top-level static `node:querystring` and `node:stream/consumers` imports in `src/adapters/node.ts` with `process.getBuiltinModule` resolution inside `presetNode()` and `/* @__PURE__ */` adapter annotations so browser client bundles contain zero `node:*` imports.
+
 ## 0.8.0
 
 ### Minor Changes

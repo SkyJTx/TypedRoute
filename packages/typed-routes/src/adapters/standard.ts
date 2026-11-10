@@ -28,4 +28,4 @@ export function presetStandard(): RuntimeAdapter {
   };
 }
 
-export const standardAdapter: RuntimeAdapter = presetStandard();
+export const standardAdapter: RuntimeAdapter = /* @__PURE__ */ presetStandard();

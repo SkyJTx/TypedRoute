@@ -17,6 +17,7 @@ import type {
   RouteValidationTuple,
   TypedAPIHandler,
 } from "~/types/route-definition";
+import type { OpenAPIOperationMeta } from "~/types/openapi";
 import { CUSTOM_INSPECT_SYMBOL, inspectRoute, type RouteDebugSummary } from "~/debug/inspect";
 import { registerAPIHandler } from "./api-handler";
 
@@ -68,7 +69,16 @@ export class DefinedRoute<
 
   public handler<TResult = unknown>(
     fn: TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>,
-  ): TypedAPIHandler<TParams, TSearch, TResult, undefined, THeaders, TCookies, undefined>;
+  ): ConfiguredAPIHandler<
+    TParams,
+    TSearch,
+    TResult,
+    undefined,
+    THeaders,
+    TCookies,
+    undefined,
+    undefined
+  >;
   public handler<
     B extends TypeValidator<unknown, unknown> | undefined = undefined,
     H extends TypeValidator<unknown, unknown> | undefined = undefined,
@@ -83,7 +93,7 @@ export class DefinedRoute<
       TParams,
       S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
       TResult,
-      InferOutput<B>,
+      B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
       H extends TypeValidator<unknown, unknown>
         ? InferOutput<H>
         : [THeaders] extends [undefined]
@@ -100,7 +110,7 @@ export class DefinedRoute<
     TParams,
     S extends TypeValidator<unknown, unknown> ? InferOutput<S> : TSearch,
     TResult,
-    InferOutput<B>,
+    B extends TypeValidator<unknown, unknown> ? InferOutput<B> : undefined,
     H extends TypeValidator<unknown, unknown>
       ? InferOutput<H>
       : [THeaders] extends [undefined]
@@ -161,6 +171,7 @@ export function defineRoute<
     rawSearch: Record<string, unknown>;
   }) => void;
   info?: Record<string, unknown>;
+  openapi?: OpenAPIOperationMeta;
 }): DefinedRouteConfig<
   InferOutput<P>,
   InferOutput<S>,

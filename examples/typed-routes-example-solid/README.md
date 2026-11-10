@@ -1,56 +1,32 @@
-## Solid `bare` template
+# TypedRoute Solid 2.0 RC Full-Stack Example
 
-The smallest useful Solid 2.0 app: `solid-js` + `@solidjs/web`, no router, no server dependencies.
+Full-stack reference application demonstrating [`@skyjt/typed-routes-solid`](../../packages/typed-routes-solid) and [`@skyjt/typed-routes`](../../packages/typed-routes) running on Solid 2.0 RC, `@solidjs/router`, Valibot (Standard Schema V1), and Hono.
 
-**Deployment contract:** `vite build` emits a purely static site — deploy `dist/client` to any static host. No server, no `start` script: Node hosts that run `npm start` after building (Firebase App Hosting, most buildpacks) need either the platform's static product or the SSR flip — see `basic`'s README. The client ships only Solid and your component.
+## Key Capabilities Demonstrated
 
-## How it works
+- **Validated UI Page Routes (`defineRoute` + `RouteAccessorTuple`)**:
+  - `/users/`: Search query validation (`q`, `role`) with reactive `route.useSearch()` and graceful invalid-filter fallback UI.
+  - `/users/:id`: Numeric path parameter coercion (`v.number()`) with `route.useParams()` and invalid-ID fallback UI.
+  - `/users/new`: Static sibling route coexisting cleanly alongside parametric `/users/:id`.
+- **Typed API Route Handlers & OpenAPI 3.1**:
+  - `GET /api/health`, `GET /api/users`, `POST /api/users`, `GET /api/users/:id`, and `DELETE /api/users/:id` with `openapi` operation metadata and `json()` / `HttpError` helpers.
+  - Automatic **OpenAPI 3.1.0** specification at `GET /openapi.json` and interactive **Scalar API Reference UI** at `GET /docs`.
+  - Default **RFC 9457 Problem Details** (`application/problem+json`) error responses for validation and API errors.
+- **End-to-End Type Safety `[data, error]` Request Client**:
+  - `src/services/api-client.ts` uses `createClient<typeof routes>()` for compile-time checked `apiClient.get`, `apiClient.post`, and `apiClient.delete` calls returning `[data, error]` tuples.
 
-There is no `index.html` and no mount file. `@solidjs/vite-plugin`'s turnkey mode (`start: true` in `vite.config.ts`) generates the entries around two conventions:
-
-- **`src/App.tsx`** — the app. A plain default-exported component; everything you build lives under it.
-- **`src/Document.tsx`** — the document shell, the new `index.html`. It renders the full `<html>` and is where head tags go (title, meta, favicon). It is compiled only into the prerendered static shell and adds **zero client-side JS**. Delete it to fall back to the plugin's built-in shell.
-
-`vite build` prerenders the shell into `dist/client/index.html` and emits the client assets alongside it.
-
-## Usage
-
-Those templates dependencies are maintained via [pnpm](https://pnpm.io) via `pnpm up -Lri`.
-
-This is the reason you see a `pnpm-lock.yaml`. That being said, any package manager will work. This file can be safely be removed once you clone a template.
+## Commands
 
 ```bash
-$ npm install # or pnpm install or yarn install
+# Start Vite SSR development server on http://localhost:3000
+bun run dev
+
+# Build client and SSR server bundles for production
+bun run build
+
+# Run the standalone Hono production server
+bun run server
+
+# Run integration tests (API middleware, UI SSR, and OpenAPI 3.1 verification)
+bun run test
 ```
-
-### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
-
-## Available Scripts
-
-In the project directory, you can run:
-
-### `npm run dev`
-
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.<br>
-
-### `npm run build`
-
-Builds the static production site to `dist/client`.
-
-### `npm run serve`
-
-Serves the production build locally.
-
-## The `ssr` flip
-
-Streaming SSR is one boolean: add `ssr: true` next to `start: true` in `vite.config.ts`. `src/App.tsx` and `src/Document.tsx` carry over unchanged — `<HydrationScript />` is already in place in the Document (in client mode it is stripped from the static shell). The build then emits a request handler to `dist/server` instead of a purely static site; to run it on Node, use `start: { node: true }` so the build also emits a ready-to-run `dist/server/node.js` (`fullstack`'s README covers deployment).
-
-## Growing out of `bare`
-
-- **A router, file-system routes, per-page titles, and testing** come with the `basic` template — same structure, more floors.
-- **A server** (data loading, mutations, sessions, API routes) is the `fullstack` template.
-
-## This project was created with the [Solid CLI](https://github.com/solidjs-community/solid-cli)
