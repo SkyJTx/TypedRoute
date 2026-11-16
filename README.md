@@ -10,8 +10,8 @@
 
 | Package | Version | Description |
 | :--- | :--- | :--- |
-| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.9.0` | Framework-agnostic routing core: sync/async schema validation (`StandardSchemaV1`, Valibot, Zod), path & cross-app URL builder (`buildUrl`, `createPaths`), `route.handler(config, fn)` (`body`, `headers`, `cookies`, `responses`, `use`, `openapi`), OpenAPI 3.1 generator & interactive UI (`generateOpenAPISpec`, `createOpenAPIHandler`), End-to-End Type Safety `[data, error]` Request Client (`createClient`), RFC 9457 Problem Details (`problem`), runtime adapters (`bun`, `node`, `standard`), `createMiddleware`, and Vite plugin. |
-| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.7.0` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter` (with cross-app `apps` config), `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), local & cross-app `<Link>` and `useNavigate`, `createClient`, OpenAPI 3.1 helpers, and Solid SSR Vite plugin. |
+| **[`@skyjt/typed-routes`](./packages/typed-routes)** | `0.9.1` | Framework-agnostic routing core: sync/async schema validation (`StandardSchemaV1`, Valibot, Zod), path & cross-app URL builder (`buildUrl`, `createPaths`), `route.handler(config, fn)` (`body`, `headers`, `cookies`, `responses`, `use`, `openapi`), bounded request parsing (`maxBodySize`, `DEFAULT_MAX_BODY_SIZE`), OpenAPI 3.1 generator & interactive UI (`generateOpenAPISpec`, `createOpenAPIHandler`), End-to-End Type Safety `[data, error]` Request Client (`createClient`), RFC 9457 Problem Details (`problem`), runtime adapters (`bun`, `node`, `standard`), `createMiddleware`, and Vite plugin. |
+| **[`@skyjt/typed-routes-solid`](./packages/typed-routes-solid)** | `0.7.1` | SolidJS 2.0 and `@solidjs/router` adapter: `createRouter` (with cross-app `apps` config), `interceptFileRoutes`, reactive `defineRoute` with `RouteAccessorTuple` accessors (`useParams`, `useSearch`), scheme-sanitized local & cross-app `<Link>` and `useNavigate`, `createClient`, OpenAPI 3.1 helpers, and Solid SSR Vite plugin. |
 
 ---
 

@@ -48,10 +48,14 @@ export class ValidationOutcome<T> {
   }
 }
 
-export type CompiledValidator<T = unknown> = (rawInput: unknown) => ValidationResult<T>;
+export type CompiledValidator<T = unknown> = (
+  rawInput: unknown,
+  shouldCoerce?: boolean,
+) => ValidationResult<T>;
 
 export type CompiledAsyncValidator<T = unknown> = (
   rawInput: unknown,
+  shouldCoerce?: boolean,
 ) => ValidationResult<T> | Promise<ValidationResult<T>>;
 
 const compiledValidatorCache = new WeakMap<object, CompiledValidator<unknown>>();
@@ -140,9 +144,12 @@ function extractIssues(err: unknown): ValidationIssue[] {
  * Cached in a WeakMap so schema shape inspection ("~standard" in v / "safeParse" in v)
  * runs only once per validator lifetime.
  */
-export function compileValidator<T>(validator: TypeValidator<T>): CompiledValidator<T> {
+export function compileValidator<T>(
+  validator: TypeValidator<T>,
+  defaultShouldCoerce: boolean = true,
+): CompiledValidator<T> {
   const key = validator as unknown as object;
-  const cached = compiledValidatorCache.get(key);
+  const cached = defaultShouldCoerce ? compiledValidatorCache.get(key) : undefined;
   if (cached) {
     return cached as CompiledValidator<T>;
   }
@@ -151,7 +158,10 @@ export function compileValidator<T>(validator: TypeValidator<T>): CompiledValida
 
   if (isStandardSchema(validator)) {
     const standardValidate = validator["~standard"].validate;
-    compiled = function validateStandardSchema(rawInput: unknown): ValidationResult<T> {
+    compiled = function validateStandardSchema(
+      rawInput: unknown,
+      shouldCoerce: boolean = defaultShouldCoerce,
+    ): ValidationResult<T> {
       const direct = standardValidate(rawInput);
       if (direct instanceof Promise) {
         return ValidationOutcome.fail<T>([
@@ -164,7 +174,7 @@ export function compileValidator<T>(validator: TypeValidator<T>): CompiledValida
       if (!direct.issues) {
         return ValidationOutcome.ok<T>(direct.value as T);
       }
-      if (typeof rawInput === "object" && rawInput !== null) {
+      if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
         const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
         const coercedResult = standardValidate(coercedInput);
         if (coercedResult instanceof Promise) {
@@ -182,12 +192,15 @@ export function compileValidator<T>(validator: TypeValidator<T>): CompiledValida
       return ValidationOutcome.fail<T>(formatStandardIssues(direct.issues));
     };
   } else if (isZodSchema(validator)) {
-    compiled = function validateZodSchema(rawInput: unknown): ValidationResult<T> {
+    compiled = function validateZodSchema(
+      rawInput: unknown,
+      shouldCoerce: boolean = defaultShouldCoerce,
+    ): ValidationResult<T> {
       const direct = validator.safeParse(rawInput);
       if (direct.success) {
         return ValidationOutcome.ok<T>(direct.data as T);
       }
-      if (typeof rawInput === "object" && rawInput !== null) {
+      if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
         const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
         const coercedResult = validator.safeParse(coercedInput);
         if (coercedResult.success) {
@@ -198,12 +211,15 @@ export function compileValidator<T>(validator: TypeValidator<T>): CompiledValida
     };
   } else if (typeof validator === "function") {
     const fnValidator = validator as FunctionValidator<T>;
-    compiled = function validateFunctionParser(rawInput: unknown): ValidationResult<T> {
+    compiled = function validateFunctionParser(
+      rawInput: unknown,
+      shouldCoerce: boolean = defaultShouldCoerce,
+    ): ValidationResult<T> {
       try {
         const result = fnValidator(rawInput as never);
         return ValidationOutcome.ok<T>(result);
       } catch (err) {
-        if (typeof rawInput === "object" && rawInput !== null) {
+        if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
           try {
             const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
             const coercedResult = fnValidator(coercedInput as never);
@@ -221,7 +237,10 @@ export function compileValidator<T>(validator: TypeValidator<T>): CompiledValida
     };
   }
 
-  if ((typeof validator === "object" && validator !== null) || typeof validator === "function") {
+  if (
+    defaultShouldCoerce &&
+    ((typeof validator === "object" && validator !== null) || typeof validator === "function")
+  ) {
     compiledValidatorCache.set(key, compiled as CompiledValidator<unknown>);
   }
 
@@ -290,9 +309,12 @@ export function evaluateRouteTarget<T>(
  * triggering a microtask tick. Asynchronous Standard Schema v1 or async function validators
  * resolve cleanly via Promise.
  */
-export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledAsyncValidator<T> {
+export function compileAsyncValidator<T>(
+  validator: TypeValidator<T>,
+  defaultShouldCoerce: boolean = true,
+): CompiledAsyncValidator<T> {
   const key = validator as unknown as object;
-  const cached = compiledAsyncValidatorCache.get(key);
+  const cached = defaultShouldCoerce ? compiledAsyncValidatorCache.get(key) : undefined;
   if (cached) {
     return cached as CompiledAsyncValidator<T>;
   }
@@ -303,6 +325,7 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
     const standardValidate = validator["~standard"].validate;
     compiled = function validateStandardSchemaAsync(
       rawInput: unknown,
+      shouldCoerce: boolean = defaultShouldCoerce,
     ): ValidationResult<T> | Promise<ValidationResult<T>> {
       const direct = standardValidate(rawInput);
       if (direct instanceof Promise) {
@@ -310,7 +333,7 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
           if (!resolvedDirect.issues) {
             return ValidationOutcome.ok<T>(resolvedDirect.value as T);
           }
-          if (typeof rawInput === "object" && rawInput !== null) {
+          if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
             const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
             const coercedResult = await standardValidate(coercedInput);
             if (!coercedResult.issues) {
@@ -323,7 +346,7 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
       if (!direct.issues) {
         return ValidationOutcome.ok<T>(direct.value as T);
       }
-      if (typeof rawInput === "object" && rawInput !== null) {
+      if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
         const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
         const coercedResult = standardValidate(coercedInput);
         if (coercedResult instanceof Promise) {
@@ -341,12 +364,13 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
       return ValidationOutcome.fail<T>(formatStandardIssues(direct.issues));
     };
   } else if (isZodSchema(validator)) {
-    const syncCompiled = compileValidator(validator);
+    const syncCompiled = compileValidator(validator, defaultShouldCoerce);
     compiled = syncCompiled;
   } else if (typeof validator === "function") {
     const fnValidator = validator as FunctionValidator<T>;
     compiled = function validateFunctionParserAsync(
       rawInput: unknown,
+      shouldCoerce: boolean = defaultShouldCoerce,
     ): ValidationResult<T> | Promise<ValidationResult<T>> {
       try {
         const result = fnValidator(rawInput as never);
@@ -354,7 +378,7 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
           return result.then(
             (val) => ValidationOutcome.ok<T>(val),
             async (err: unknown) => {
-              if (typeof rawInput === "object" && rawInput !== null) {
+              if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
                 try {
                   const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
                   const coercedResult = await fnValidator(coercedInput as never);
@@ -369,7 +393,7 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
         }
         return ValidationOutcome.ok<T>(result);
       } catch (err) {
-        if (typeof rawInput === "object" && rawInput !== null) {
+        if (shouldCoerce && typeof rawInput === "object" && rawInput !== null) {
           try {
             const coercedInput = coerceRecord(rawInput as Record<string, unknown>);
             const coercedResult = fnValidator(coercedInput as never);
@@ -393,7 +417,10 @@ export function compileAsyncValidator<T>(validator: TypeValidator<T>): CompiledA
     };
   }
 
-  if ((typeof validator === "object" && validator !== null) || typeof validator === "function") {
+  if (
+    defaultShouldCoerce &&
+    ((typeof validator === "object" && validator !== null) || typeof validator === "function")
+  ) {
     compiledAsyncValidatorCache.set(key, compiled as CompiledAsyncValidator<unknown>);
   }
 

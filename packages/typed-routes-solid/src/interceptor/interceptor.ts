@@ -36,17 +36,20 @@ export function interceptFileRoutes<const TManifest extends readonly unknown[]>(
       return ref.require().default as Component<RouteSectionProps>;
     }
     const moduleUrl = ref.src ? ref.src.replace(/\\/g, "/") : ref.src;
-    if (ref.src) {
+    if (ref.src && !Object.isFrozen(ref)) {
       ref.src = moduleUrl;
     }
-    let cached = componentCache.get(moduleUrl);
+    const hasModuleUrl = typeof moduleUrl === "string" && moduleUrl.length > 0;
+    let cached = hasModuleUrl ? componentCache.get(moduleUrl) : undefined;
     if (!cached) {
       cached = lazy(
         ref.import as () => Promise<{ default: Component<RouteSectionProps> }>,
         undefined,
         moduleUrl,
       );
-      componentCache.set(moduleUrl, cached);
+      if (hasModuleUrl) {
+        componentCache.set(moduleUrl, cached);
+      }
     }
     return cached;
   }

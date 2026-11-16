@@ -61,7 +61,7 @@ export const DELETE = route.handler(() => {
 
 > **Good to know**:
 >
-> - **Automatic Content-Type Body Decoding**: When `body` is configured on `route.handler(config, fn)`, `createMiddleware` automatically decodes `application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`, `text/*`, and binary `ArrayBuffer` payloads. Malformed JSON returns a clean `400 Bad Request` validation error (`target: "body"`).
+> - **Automatic Content-Type Body Decoding & Strict JSON Coercion**: When `body` is configured on `route.handler(config, fn)`, `createMiddleware` automatically decodes `application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`, `text/*`, and binary `ArrayBuffer` payloads up to `maxBodySize` (default `DEFAULT_MAX_BODY_SIZE` = `1_048_576` bytes). JSON payloads preserve strict JSON types (strings are not coerced into numbers/booleans), while `application/x-www-form-urlencoded` and `multipart/form-data` retain string-to-primitive coercion. Malformed JSON or oversized payloads return a clean `400 Bad Request` validation error (`target: "body"`).
 > - **Lowercase Header Keys**: Per the WHATWG Fetch `Headers` specification, incoming header names are normalized to lowercase (`"authorization"`, `"x-api-version"`). Always define header schema keys in lowercase.
 > - **Sync-First Async Validation**: Both synchronous and asynchronous `StandardSchemaV1` / function validators are supported in `createMiddleware`. Synchronous schemas execute with zero `Promise` or microtask overhead.
 
@@ -147,6 +147,7 @@ import { createMiddleware } from "@skyjt/typed-routes-solid";
 
 export const apiMiddleware = createMiddleware(routes, {
   base: "/",
+  maxBodySize: 1_048_576,
   onValidationError({ error, rawParams, rawSearch, rawBody, isPage }) {
     if (isPage) {
       return;
@@ -248,6 +249,11 @@ To eliminate garbage collection pressure on high-throughput JSON routes, `@skyjt
 - `STATIC_JSON_200_INIT`: Frozen `ResponseInit` `{ status: 200, headers: STATIC_JSON_HEADERS }`.
 
 When returning plain objects from handlers, `json(result)` and `toResponse(result)` automatically use `STATIC_JSON_200_INIT` with `new Response(JSON.stringify(data), STATIC_JSON_200_INIT)` for default 200 responses, bypassing options object and header map allocations entirely.
+
+### Safe Redirects (`redirect`) & Payload Limits (`DEFAULT_MAX_BODY_SIZE`)
+
+- `redirect(url, status?)` rejects executable URI schemes (`javascript:`, `data:`, `vbscript:`) with a `TypeError` and collapses leading protocol-relative slashes (`//attacker.com` -> `/attacker.com`) on relative destinations.
+- `options.maxBodySize` defaults to `DEFAULT_MAX_BODY_SIZE` (`1_048_576` bytes / 1 MiB) and terminates oversized `Content-Length` or streaming request bodies before parsing.
 
 ---
 

@@ -112,6 +112,8 @@ export type {
 
 export {
   EMPTY_RECORD,
+  isForbiddenKey,
+  safeDecodeComponent,
   coercePrimitive,
   coerceRecord,
   normalizeSearchParams,
@@ -210,6 +212,7 @@ export {
   nodeAdapter,
 } from "./adapters";
 export {
+  DEFAULT_MAX_BODY_SIZE,
   parseRequestBody,
   parseRequestCookies,
   parseRequestHeaders,

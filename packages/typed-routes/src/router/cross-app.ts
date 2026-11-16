@@ -12,6 +12,7 @@ import type {
   TypedPaths,
 } from "~/types/cross-app";
 import { buildUrl } from "./path-builder";
+import { assertSafeUrlProtocol, normalizeRelativeUrlSlashes } from "./url-safety";
 
 /**
  * Joins an external application's `baseUrl` (origin or subpath prefix) with a built path
@@ -19,7 +20,7 @@ import { buildUrl } from "./path-builder";
  */
 export function joinBaseAndPath(baseUrl: string, builtPath: string): string {
   if (!baseUrl || baseUrl === "/") {
-    return builtPath;
+    return normalizeRelativeUrlSlashes(builtPath);
   }
   const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
   if (builtPath === "/") {
@@ -63,11 +64,14 @@ export function navigateCrossApp(
     target?: CrossAppNavigationOptions["target"];
   },
 ): string {
+  assertSafeUrlProtocol(appConfig.baseUrl, "cross-app navigation");
+  assertSafeUrlProtocol(pattern, "cross-app navigation");
   const url = buildCrossAppUrl(appConfig.baseUrl, pattern, {
     params: options?.params,
     search: options?.search,
     hash: options?.hash,
   });
+  assertSafeUrlProtocol(url, "cross-app navigation");
 
   const navOptions: CrossAppNavigationOptions = {
     replace: options?.replace,
@@ -81,7 +85,7 @@ export function navigateCrossApp(
 
   if (typeof window !== "undefined") {
     if (options?.target && options.target !== "_self" && typeof window.open === "function") {
-      window.open(url, options.target);
+      window.open(url, options.target, "noopener,noreferrer");
     } else if (options?.replace && window.location && typeof window.location.replace === "function") {
       window.location.replace(url);
     } else if (window.location && typeof window.location.assign === "function") {

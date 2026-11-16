@@ -24,9 +24,15 @@ app.all("*", async (c) => {
     }
     return c.json({ error: "Invalid server handler" }, 500);
   } catch (err) {
+    const details =
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : err instanceof Error
+          ? err.message
+          : String(err);
     return c.json({
       error: "Solid Start server bundle not available. Execute 'bun run build' before launching the standalone Hono server.",
-      details: err instanceof Error ? err.message : String(err),
+      ...(details !== undefined ? { details } : {}),
     }, 503);
   }
 });

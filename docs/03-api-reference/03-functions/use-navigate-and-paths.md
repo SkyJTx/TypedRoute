@@ -45,6 +45,10 @@ type TypedNavigate = <Path extends ExtractRoutePaths<TManifest>>(
 | `replace` | `boolean` | `false` | Replaces the current history entry when `true`. |
 | `scroll` | `boolean` | `true` | Scrolls to top after navigation when `true`. |
 
+> **Good to know**:
+>
+> - `useNavigate()` and `navigateCrossApp()` reject executable URI schemes (`javascript:`, `data:`, `vbscript:`) with a `TypeError`, collapse leading protocol-relative slashes (`//host` -> `/host`) on relative targets, and pass `"noopener,noreferrer"` when opening external tabs via `window.open`.
+
 ---
 
 ## `buildUrl(pattern, options?)`
@@ -165,6 +169,7 @@ const [data, error] = await api.get("/api/users/:id", {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.9.1` | Added executable URI scheme rejection (`TypeError`), leading `//` normalization in `useNavigate`, `joinBaseAndPath`, and `navigateCrossApp`, `"noopener,noreferrer"` window features on `window.open`, and `Object.hasOwn` guards in `serializeFastQuery`. |
 | `v0.9.0` | Added `createPaths`, `buildCrossAppUrl`, `navigateCrossApp`, 3-argument cross-app `useNavigate(app, to, options?)` overloads, and `createClient<typeof routes>()` returning `[data, error]` tuples with RFC 9457 `ProblemDetails`. |
 | `v0.6.3` | Replaced `LruCache` wrapper with bounded native `Map` FIFO eviction, added single-parameter builder specialization (`buildSingleRequiredParamUrl`), and added IEEE-754 finite numeric parameter validation (`RangeError` on `NaN` / `Infinity / -Infinity`). |
 | `v0.6.2` | Replaced unbounded builder cache with `MAX_BUILDER_CACHE_SIZE = 2048` bounded `LruCache`, exported `clearBuilderCache` and `getBuilderCacheSize`, and added prototype pollution defense in query parameter coercion. |

@@ -22,6 +22,7 @@ export const GET = route.handler(async (event) => {
     throw HttpError.unauthorized("Authorization header is required");
   }
 
-  // `token` is already stripped of "Bearer " and validated as JWS compact!
-  return json({ success: true, message: "Authorized", token });
+  // Note: v.jwsCompact validates serialization format only, not cryptographic signature or claims.
+  // Bearer token is omitted from response payload to prevent sensitive credential exposure.
+  return json({ success: true, message: "Authorized (JWS compact structure validated)" });
 });

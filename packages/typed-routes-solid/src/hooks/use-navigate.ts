@@ -13,6 +13,7 @@ import {
   type ExternalAppConfig,
 } from "@skyjt/typed-routes";
 import type { TypedNavigateFn } from "~/types/solid-route";
+import { assertSafeNavigateHref } from "~/utils/url-safety";
 
 /**
  * Returns a navigation function constrained by local and cross-application route manifests.
@@ -63,11 +64,13 @@ export function useNavigate<
         }
       | undefined;
 
-    const url = buildUrl(firstArg, {
+    assertSafeNavigateHref(firstArg);
+    const rawUrl = buildUrl(firstArg, {
       params: localOpts?.params,
       search: localOpts?.search,
       hash: localOpts?.hash,
     });
+    const url = assertSafeNavigateHref(rawUrl);
     nativeNavigate(url, {
       replace: localOpts?.replace,
       scroll: localOpts?.scroll,

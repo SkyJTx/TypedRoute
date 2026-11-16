@@ -10,6 +10,7 @@ import {
   type ProblemOptions,
 } from "~/types/problem-details";
 import type { TypeValidator } from "~/types/type-validator";
+import { assertSafeUrlProtocol, normalizeRelativeUrlSlashes } from "./url-safety";
 
 /**
  * Symbol storing unserialized payload and schema metadata on `TypedResponse` instances.
@@ -268,6 +269,9 @@ const RESERVED_PROBLEM_OPTION_KEYS = new Set([
   "details",
   "headers",
   "schema",
+  "__proto__",
+  "constructor",
+  "prototype",
 ]);
 
 /**
@@ -386,10 +390,12 @@ export function redirect<TStatus extends 301 | 302 | 303 | 307 | 308 = 302>(
   url: string,
   status?: TStatus,
 ): TypedResponse<null, TStatus> {
+  assertSafeUrlProtocol(url, "redirect");
+  const safeUrl = normalizeRelativeUrlSlashes(url);
   const code = status ?? (302 as TStatus);
   const response = new Response(null, {
     status: code,
-    headers: { location: url },
+    headers: { location: safeUrl },
   }) as TypedResponse<null, TStatus>;
   (response as unknown as Record<symbol, unknown>)[TYPED_RESPONSE_BODY] = null;
   return response;

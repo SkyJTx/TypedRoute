@@ -1,5 +1,17 @@
 # @skyjt/typed-routes
 
+## 0.9.1
+
+### Patch Changes
+
+- Security Hardening, Request Body DoS Protection, Safe Redirects, and Strict Payload Parsing:
+
+  - **Request Body Size Limits & DoS Protection (`DEFAULT_MAX_BODY_SIZE`, `MiddlewareOptions.maxBodySize`)**: Enforced a default 1 MiB (`1_048_576` bytes) payload ceiling across `Content-Length` headers, bounded stream chunk readers (`readBoundedStreamBytes`, `createBoundedStream`, `readBoundedText`), and `multipart/form-data` uploads, while redacting raw stream error details (`"Failed to read request body stream"`).
+  - **Safe Redirect & Navigation Protocol Sanitization (`redirect`, `navigateCrossApp`, `joinBaseAndPath`, `extractRequestPathname`)**: Rejected client-executable URI schemes (`javascript:`, `data:`, `vbscript:`) with `TypeError`, collapsed protocol-relative leading slashes (`//attacker.com` -> `/attacker.com`), and enforced `"noopener,noreferrer"` in `navigateCrossApp` window opens.
+  - **Strict JSON Body Validation**: Disabled implicit string-to-primitive fallback coercion (`shouldCoerce = false`) on JSON request bodies and response schemas while preserving form-urlencoded and multipart body coercion.
+  - **Prototype Pollution & Malformed URI Guards**: Added `safeDecodeComponent` (`URIError`-safe query decoding returning `Object.create(null)` in `parseFastQueryString`), decoded cookie keys before evaluating `isForbiddenKey` in `parseRequestCookies`, blocked `__proto__`/`constructor`/`prototype` extension keys in `problem()`, and guarded `for...in` iteration in `serializeFastQuery` with `Object.hasOwn`.
+  - **OpenAPI Swagger UI XSS Defense**: Escaped single quotes (`&#39;`) in `escapeHtml` and serialized `specUrl` safely inside `<script>` blocks via `JSON.stringify` with `<`, `\u2028`, and `\u2029` escaping.
+
 ## 0.9.0
 
 ### Minor Changes

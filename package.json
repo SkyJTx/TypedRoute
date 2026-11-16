@@ -33,5 +33,10 @@
     "typescript": "^5.9.3",
     "vitest": "^5.0.1"
   },
+  "overrides": {
+    "seroval": "^1.6.11",
+    "seroval-plugins": "^1.6.11",
+    "minimatch": "^11.0.1"
+  },
   "license": "MPL-2.0"
 }

@@ -19,6 +19,7 @@ import type {
   LinkProps,
   TypedLinkComponent,
 } from "~/types/solid-route";
+import { isUnsafeUrlProtocol, sanitizeLinkHref } from "~/utils/url-safety";
 
 interface InternalLinkProps extends Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
   app?: string;
@@ -38,6 +39,10 @@ export function createBoundLink<
 >(boundApps?: CrossAppConfigs<TApps>): TypedLinkComponent<TManifest, TApps> {
   function BoundLink(rawProps: InternalLinkProps): JSX.Element {
     const href = (): string => {
+      if (isUnsafeUrlProtocol(rawProps.to)) {
+        return "about:blank";
+      }
+      let resolved: string;
       const appName = rawProps.app;
       if (typeof appName === "string" && appName.length > 0) {
         const activeApps =
@@ -49,18 +54,35 @@ export function createBoundLink<
             `Unknown external application "${appName}". Register its baseUrl in createRouter({ apps }) or pass apps to <Link>.`,
           );
         }
-        return buildCrossAppUrl(appConfig.baseUrl, rawProps.to, {
+        resolved = buildCrossAppUrl(appConfig.baseUrl, rawProps.to, {
+          params: rawProps.params,
+          search: rawProps.search,
+          hash: rawProps.hash,
+        });
+      } else {
+        resolved = buildUrl(rawProps.to, {
           params: rawProps.params,
           search: rawProps.search,
           hash: rawProps.hash,
         });
       }
+      return sanitizeLinkHref(resolved);
+    };
 
-      return buildUrl(rawProps.to, {
-        params: rawProps.params,
-        search: rawProps.search,
-        hash: rawProps.hash,
-      });
+    const rel = (): InternalLinkProps["rel"] => {
+      if (rawProps.target !== "_blank") {
+        return rawProps.rel;
+      }
+      if (typeof rawProps.rel !== "string" || rawProps.rel.trim().length === 0) {
+        return "noopener noreferrer";
+      }
+      const relTokens = rawProps.rel.toLowerCase().split(/\s+/);
+      const hasNoopener = relTokens.includes("noopener");
+      const hasNoreferrer = relTokens.includes("noreferrer");
+      if (hasNoopener && hasNoreferrer) {
+        return rawProps.rel;
+      }
+      return `${rawProps.rel}${hasNoopener ? "" : " noopener"}${hasNoreferrer ? "" : " noreferrer"}`;
     };
 
     return createComponent(Dynamic, {
@@ -70,7 +92,9 @@ export function createBoundLink<
       },
       class: rawProps.class,
       target: rawProps.target,
-      rel: rawProps.rel,
+      get rel() {
+        return rel();
+      },
       onClick: rawProps.onClick,
       get children() {
         return rawProps.children;

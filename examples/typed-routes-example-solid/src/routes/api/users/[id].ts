@@ -4,7 +4,7 @@ import { usersStore } from "~/services/db";
 
 export const route = defineRoute({
   params: v.object({
-    id: v.number(),
+    id: v.pipe(v.number(), v.integer(), v.minValue(1)),
   }),
 });
 

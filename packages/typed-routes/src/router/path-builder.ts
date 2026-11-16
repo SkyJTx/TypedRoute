@@ -206,6 +206,9 @@ function tokenizePattern(pattern: string): {
 export function serializeFastQuery(search: Record<string, unknown>): string {
   let q = "";
   for (const k in search) {
+    if (!Object.hasOwn(search, k)) {
+      continue;
+    }
     const v = search[k];
     if (v === undefined || v === null) {
       continue;

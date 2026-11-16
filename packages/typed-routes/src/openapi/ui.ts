@@ -20,7 +20,15 @@ function escapeHtml(value: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function serializeInlineJsString(value: string): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 }
 
 function renderScalarHtml(ctx: OpenAPIUIRendererContext): string {
@@ -42,7 +50,6 @@ function renderScalarHtml(ctx: OpenAPIUIRendererContext): string {
 
 function renderSwaggerHtml(ctx: OpenAPIUIRendererContext): string {
   const safeTitle = escapeHtml(ctx.title);
-  const safeSpecUrl = escapeHtml(ctx.specUrl);
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -55,7 +62,7 @@ function renderSwaggerHtml(ctx: OpenAPIUIRendererContext): string {
     <div id="swagger-ui"></div>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script>
-      window.ui = SwaggerUIBundle({ url: "${safeSpecUrl}", dom_id: "#swagger-ui" });
+      window.ui = SwaggerUIBundle({ url: ${serializeInlineJsString(ctx.specUrl)}, dom_id: "#swagger-ui" });
     </script>
   </body>
 </html>`;

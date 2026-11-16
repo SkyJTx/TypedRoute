@@ -48,6 +48,7 @@ function createMiddleware(
 | `routes` | `readonly MiddlewareRouteEntry[]` | **Required** | The flat route manifest array exported as the default export of `"virtual:file-routes"`. |
 | `options` | `MiddlewareOptions` | `{}` | Optional configuration for path stripping, request event resolution, and validation error handling. |
 | `options.base` | `string` | `"/"` | Base URL path prefix stripped from incoming request pathnames prior to route matching. |
+| `options.maxBodySize` | `number` | `1_048_576` (`DEFAULT_MAX_BODY_SIZE`) | Maximum allowed request body size in bytes across `Content-Length` headers and chunked streams. Exceeding it returns a `body` validation failure without buffering unbounded payloads. |
 | `options.adapter` | `RuntimeAdapter \| RuntimeAdapterPreset` | Auto-detected | Runtime adapter for platform-specific query string, body, and header parsing optimizations (`"bun"`, `"node"`, `"standard"`, or custom `RuntimeAdapter`). |
 | `options.getEvent` | `() => APIEvent` | Solid `RequestContext` store | Custom supplier for the server request event when `createMiddleware` is invoked with a bare `Request` instead of a framework event object. |
 | `options.onValidationError` | `(args: OnValidationErrorArgs) => Response \| Promise<Response \| void> \| void` | `undefined` | Hook invoked when `params`, `search`, `body`, `headers`, `cookies`, or `response` validation fails. Returning a `Response` short-circuits the request chain with that response. |
@@ -76,6 +77,7 @@ function createMiddleware(
 > **Good to know**:
 >
 > - **Zero-allocation URL parsing & open-redirect sanitization**: Incoming requests are parsed via the internal ASCII scanner (`parseFastUrl`). It strips base prefixes with zero `new URL()` host allocations, normalizes backslashes, and collapses consecutive leading slashes (`//attacker.com` -> `/attacker.com`), safeguarding against protocol-relative Open Redirect attacks before route matching occurs.
+> - **Bounded request body ingestion & strict JSON types**: `parseRequestBody` enforces `options.maxBodySize` (default `DEFAULT_MAX_BODY_SIZE` = `1_048_576` bytes) across `Content-Length` headers, streaming chunk readers, and `multipart/form-data`, and redacts raw stream read exceptions. JSON request bodies enforce strict JSON types without coercing strings (`"42"`) into numbers/booleans, while form-urlencoded and multipart bodies retain primitive coercion.
 > - **How `isPage` is calculated**: Internally, `createMiddleware` builds a `WeakMap<APIHandlerRef, MatchedRouteMetadata>` (`buildMatcherAndMetadata`) during initialization. For each matched route, `isPage` is computed deterministically as:
 >   $$\text{isPage} = (\text{route.page} === \text{true}) \land (\text{request.method} \in \{\text{"GET"}, \text{"HEAD"}\})$$
 >   Unlike `filesystem-routing/api`'s internal `createAPIMatcher` (which checks `route.page === true && route.$component !== undefined` and only indexes routes with HTTP handlers), `createMiddleware` tracks `MatchedRouteMetadata` directly without mutating `$component` or executing synthetic handler functions.
@@ -129,6 +131,7 @@ export default createMiddleware(routes, {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.9.1` | Added `options.maxBodySize` (`DEFAULT_MAX_BODY_SIZE = 1_048_576`) streaming DoS limit, safe `URIError`-tolerant query decoding returning `Object.create(null)`, pre-decode cookie key filtering, non-coercing JSON body validation, `__proto__`/`constructor`/`prototype` filtering in `problem()`, and safe `<script>` JSON serialization in Swagger HTML UI. |
 | `v0.9.0` | Added built-in `openapi` option (`generateOpenAPISpec`, `createOpenAPIHandler`, `renderOpenAPIUI`), RFC 9457 Problem Details defaults (`defaultOnValidationError`, `defaultOnApiError`, `problem()`), dynamic OpenAPI error contract reflection, static page route precedence (`UNCONFIGURED_PAGE_REF`), zero-allocation `TYPED_RESPONSE_BODY` symbol tagging, and browser-safe `presetNode` resolution via `process.getBuiltinModule`. |
 | `v0.8.0` | Added pluggable `adapter` option supporting `"bun"`, `"node"`, and `"standard"` runtime presets, custom `RuntimeAdapter` implementations, environment auto-detection, and zero-allocation static response headers. |
 | `v0.7.0` | Added sync-first async validator execution (`compileAsyncValidator`), Content-Type body/header/cookie parsing and validation, composable `use` middleware chains with context merging, response schema verification, and `HttpError` / `onApiError` handling. |

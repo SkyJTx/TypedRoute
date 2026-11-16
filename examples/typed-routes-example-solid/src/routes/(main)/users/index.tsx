@@ -69,6 +69,7 @@ export default function UsersDirectoryPage() {
               onInput={(e) => {
                 navigate("/users/", {
                   search: { q: e.currentTarget.value, role: validSearch().role },
+                  replace: true,
                 });
               }}
             />

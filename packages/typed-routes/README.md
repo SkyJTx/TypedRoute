@@ -1,6 +1,6 @@
 # `@skyjt/typed-routes`
 
-> Framework-agnostic compile-time typed routes, sync/async Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, custom parsers), local & cross-app URL path building (`buildUrl`, `createPaths`), method-scoped `route.handler(config, fn)` API builders (`body`, `headers`, `cookies`, `responses`, `use`, `openapi`), OpenAPI 3.1 specification & interactive UI (`generateOpenAPISpec`, `createOpenAPIHandler`), End-to-End Type Safety `[data, error]` Request Client (`createClient`), RFC 9457 Problem Details (`problem`), runtime adapters (`Bun`, `Node`, `Standard`), and zero-allocation static JSON response envelopes for [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> Framework-agnostic compile-time typed routes, sync/async Universal Schema validation (`StandardSchemaV1`, Valibot, Zod, custom parsers), local & cross-app URL path building (`buildUrl`, `createPaths`), method-scoped `route.handler(config, fn)` API builders (`body`, `headers`, `cookies`, `responses`, `use`, `openapi`), bounded request ingestion (`maxBodySize` / `DEFAULT_MAX_BODY_SIZE`), open-redirect & protocol sanitization, OpenAPI 3.1 specification & interactive UI (`generateOpenAPISpec`, `createOpenAPIHandler`), End-to-End Type Safety `[data, error]` Request Client (`createClient`), RFC 9457 Problem Details (`problem`), runtime adapters (`Bun`, `Node`, `Standard`), and zero-allocation static JSON response envelopes for [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -110,6 +110,7 @@ import { createMiddleware } from "@skyjt/typed-routes";
 export const apiMiddleware = createMiddleware(routes, {
   base: "/",
   adapter: "bun", // or "node", "standard", or custom RuntimeAdapter (auto-detected by default)
+  maxBodySize: 1_048_576, // 1 MiB ceiling (default: DEFAULT_MAX_BODY_SIZE)
   openapi: {
     path: "/openapi.json",
     docsPath: "/docs",

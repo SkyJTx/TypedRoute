@@ -51,7 +51,7 @@ export class CompiledAPIHandlerMeta {
     }
     if (config.body !== undefined) {
       flags |= HANDLER_FLAG_HAS_BODY_SCHEMA;
-      bodyVal = compileAsyncValidator(config.body as TypeValidator<unknown>);
+      bodyVal = compileAsyncValidator(config.body as TypeValidator<unknown>, false);
     }
     if (config.headers !== undefined) {
       flags |= HANDLER_FLAG_HAS_HEADERS_SCHEMA;
@@ -76,7 +76,7 @@ export class CompiledAPIHandlerMeta {
           if (!Number.isNaN(statusCode) && schema !== undefined) {
             responseVals.set(
               statusCode,
-              compileAsyncValidator(schema as TypeValidator<unknown>),
+              compileAsyncValidator(schema as TypeValidator<unknown>, false),
             );
           }
         }

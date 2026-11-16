@@ -1,6 +1,6 @@
 # `@skyjt/typed-routes-solid`
 
-> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, local & cross-app navigation (`<Link>`, `useNavigate`, `paths`), reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), method-scoped API handlers (`body`, `headers`, `cookies`, `use`, `responses`, `openapi`), OpenAPI 3.1 documentation, and the End-to-End Type Safety `[data, error]` Request Client (`createClient`) powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
+> SolidJS 2.0 and `@solidjs/router` adapter for [`@skyjt/typed-routes`](../typed-routes), providing end-to-end compile-time typed routing, scheme-sanitized local & cross-app navigation (`<Link>` with automatic `noopener noreferrer` on `_blank`, `useNavigate`, `paths`), reactive `RouteAccessorTuple` parameter validation (`[params, paramsError]`), method-scoped API handlers (`body`, `headers`, `cookies`, `use`, `responses`, `openapi`) with bounded `maxBodySize` ingestion, OpenAPI 3.1 documentation, and the End-to-End Type Safety `[data, error]` Request Client (`createClient`) powered by [`filesystem-routing`](https://www.npmjs.com/package/filesystem-routing).
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](LICENSE)
 
@@ -111,6 +111,7 @@ import { createMiddleware } from "@skyjt/typed-routes-solid";
 
 export default createMiddleware(routes, {
   base: "/",
+  maxBodySize: 1_048_576, // 1 MiB ceiling (default: DEFAULT_MAX_BODY_SIZE)
   openapi: {
     info: {
       title: "TypedRoute Solid API",

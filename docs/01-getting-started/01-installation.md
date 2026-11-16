@@ -9,7 +9,7 @@ Set up `@skyjt/typed-routes` and `@skyjt/typed-routes-solid` in a SolidJS 2.0 or
 - **Node.js** `>=20.0.0` or **Bun** `>=1.2.0`
 - **Vite** `>=5.0.0` (Vite 8 recommended)
 - **TypeScript** `>=5.4.0` with `strict: true`
-- **SolidJS** `>=2.0.0-rc.6` and `@solidjs/router` `>=2.0.0-next.21` (when using `@skyjt/typed-routes-solid`)
+- **SolidJS** `>=2.0.0-rc.16` and `@solidjs/router` `>=2.0.0-next.41` (when using `@skyjt/typed-routes-solid`)
 
 ---
 

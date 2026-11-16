@@ -1,5 +1,17 @@
 # @skyjt/typed-routes-solid
 
+## 0.7.1
+
+### Patch Changes
+
+- Security Hardening for `<Link>` & `useNavigate`, Frozen Ref Guards, and Solid 2.0 RC Alignment:
+
+  - **Navigation URI Sanitization & Tabnabbing Prevention (`<Link>`, `useNavigate`)**: Neutralized executable schemes (`javascript:`, `data:`, `vbscript:`) to `"about:blank"` in `<Link>` and rejected them with `TypeError` in `useNavigate()`, collapsed leading protocol-relative slashes (`//`), and automatically enforced `rel="noopener noreferrer"` when `target="_blank"`.
+  - **Frozen Route Ref Safety (`interceptFileRoutes`)**: Guarded `ref.src` mutation against frozen objects (`Object.isFrozen`) and skipped component cache insertion when `moduleUrl` is empty.
+  - **Solid 2.0 RC Alignment & Re-exports**: Aligned peer dependencies to `solid-js >=2.0.0-rc.16`, `@solidjs/web >=2.0.0-rc.16`, and `@solidjs/router >=2.0.0-next.41`, and re-exported `DEFAULT_MAX_BODY_SIZE`, `isForbiddenKey`, and `safeDecodeComponent`.
+  - Updated dependencies:
+    - `@skyjt/typed-routes@0.9.1`
+
 ## 0.7.0
 
 ### Minor Changes

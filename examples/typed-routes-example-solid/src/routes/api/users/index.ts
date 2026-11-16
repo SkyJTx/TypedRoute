@@ -4,9 +4,9 @@ import { usersStore, type UserRecord } from "~/services/db";
 
 export const route = defineRoute({
   search: v.object({
-    q: v.optional(v.string(), ""),
+    q: v.optional(v.pipe(v.string(), v.maxLength(100)), ""),
     role: v.optional(v.picklist(["all", "admin", "engineer", "operator"]), "all"),
-    limit: v.optional(v.number(), 20),
+    limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)), 20),
   }),
 });
 
@@ -40,8 +40,13 @@ export const GET = route.handler(
 );
 
 const createUserBodySchema = v.object({
-  name: v.pipe(v.string(), v.nonEmpty("Name is required")),
-  email: v.pipe(v.string(), v.nonEmpty("Email is required")),
+  name: v.pipe(v.string(), v.nonEmpty("Name is required"), v.maxLength(100)),
+  email: v.pipe(
+    v.string(),
+    v.nonEmpty("Email is required"),
+    v.email("Invalid email format"),
+    v.maxLength(254),
+  ),
   role: v.picklist(["admin", "engineer", "operator"]),
 });
 

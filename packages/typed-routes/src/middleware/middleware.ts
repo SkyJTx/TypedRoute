@@ -88,6 +88,10 @@ export interface MiddlewareOptions {
    */
   base?: string;
   /**
+   * Maximum allowed request body size in bytes. Defaults to 1_048_576 (1 MiB).
+   */
+  maxBodySize?: number;
+  /**
    * Custom supplier for the request event.
    */
   getEvent?: () => APIEvent;
@@ -359,7 +363,7 @@ async function executeHandlerPipeline(
   }
 
   if ((hFlags & HANDLER_FLAG_HAS_BODY_SCHEMA) !== 0 && handlerMeta.compiledBodyValidator) {
-    const parsedBodyOutcome = await parseRequestBody(request, adapter);
+    const parsedBodyOutcome = await parseRequestBody(request, adapter, options.maxBodySize);
     if (!parsedBodyOutcome.success) {
       return handleValidationFailure(
         "body",
@@ -376,7 +380,11 @@ async function executeHandlerPipeline(
       );
     }
     const rawBody = parsedBodyOutcome.data;
-    const bOutcome = handlerMeta.compiledBodyValidator(rawBody);
+    const bodyContentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+    const allowBodyCoercion =
+      bodyContentType.includes("application/x-www-form-urlencoded") ||
+      bodyContentType.includes("multipart/form-data");
+    const bOutcome = handlerMeta.compiledBodyValidator(rawBody, allowBodyCoercion);
     const bResult = bOutcome instanceof Promise ? await bOutcome : bOutcome;
     if (!bResult.success) {
       return handleValidationFailure(

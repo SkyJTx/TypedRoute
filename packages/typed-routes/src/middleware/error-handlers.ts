@@ -42,10 +42,11 @@ export function extractRequestPathname(url: string): string {
   const raw = qIdx === -1 ? url : url.slice(0, qIdx);
   const schemeIdx = raw.indexOf("://");
   if (schemeIdx === -1) {
-    return raw.startsWith("/") ? raw : "/" + raw;
+    const withSlash = raw.startsWith("/") ? raw : "/" + raw;
+    return withSlash.replace(/^\/{2,}/, "/");
   }
   const slashIdx = raw.indexOf("/", schemeIdx + 3);
-  return slashIdx === -1 ? "/" : raw.slice(slashIdx);
+  return slashIdx === -1 ? "/" : raw.slice(slashIdx).replace(/^\/{2,}/, "/");
 }
 
 /**

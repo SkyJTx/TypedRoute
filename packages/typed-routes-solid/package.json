@@ -1,6 +1,6 @@
 {
   "name": "@skyjt/typed-routes-solid",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "SolidJS and @solidjs/router adapter for @skyjt/typed-routes",
   "type": "module",
   "files": [
@@ -40,11 +40,11 @@
     "@skyjt/typed-routes": "workspace:^"
   },
   "peerDependencies": {
-    "@skyjt/typed-routes": "^0.7.0 || ^0.8.0 || ^0.9.0",
-    "@solidjs/router": ">=2.0.0-next.21",
-    "@solidjs/web": ">=2.0.0-rc.6",
+    "@skyjt/typed-routes": "^0.9.1",
+    "@solidjs/router": ">=2.0.0-next.41",
+    "@solidjs/web": ">=2.0.0-rc.16",
     "filesystem-routing": "^0.4.0",
-    "solid-js": ">=2.0.0-rc.6",
+    "solid-js": ">=2.0.0-rc.16",
     "vite": ">=5.0.0"
   },
   "peerDependenciesMeta": {
@@ -53,17 +53,17 @@
     }
   },
   "devDependencies": {
-    "@solidjs/router": "^2.0.0-next.24",
+    "@solidjs/router": "^2.0.0-next.41",
     "@solidjs/testing-library": "^1.0.0-beta.3",
-    "@solidjs/vite-plugin": "^3.0.0-next.43",
-    "@solidjs/web": "^2.0.0-rc.8",
+    "@solidjs/vite-plugin": "^3.0.0-next.50",
+    "@solidjs/web": "^2.0.0-rc.16",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@types/node": "^22.20.3",
     "filesystem-routing": "^0.4.0",
     "jsdom": "^30.1.3",
     "oxlint": "^1.89.0",
-    "solid-js": "^2.0.0-rc.8",
+    "solid-js": "^2.0.0-rc.16",
     "tsdown": "^0.23.1",
     "typescript": "^5.9.3",
     "valibot": "^1.5.0",

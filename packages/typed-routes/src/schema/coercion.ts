@@ -83,10 +83,25 @@ export function coerceRecord(record: Record<string, unknown>): Record<string, un
 }
 
 /**
+ * Returns true if the key can mutate or shadow Object.prototype members.
+ */
+export function isForbiddenKey(key: string): boolean {
+  return key === "__proto__" || key === "constructor" || key === "prototype";
+}
+
+/**
+ * Safely decodes a URI component without throwing URIError on malformed percent sequences.
+ */
+export function safeDecodeComponent(str: string): string {
+  if (str.indexOf("%") === -1) return str;
+  try { return decodeURIComponent(str); } catch { return str; }
+}
+
+/**
  * Appends a decoded query parameter into the target record, promoting duplicate keys into arrays.
  */
 function appendParam(result: Record<string, unknown>, key: string, value: string): void {
-  if (key === "__proto__" || key === "constructor" || key === "prototype") {
+  if (isForbiddenKey(key)) {
     return;
   }
   const existing = result[key];
@@ -106,15 +121,15 @@ function appendParam(result: Record<string, unknown>, key: string, value: string
  */
 export function parseFastQueryString(searchStr: string): Record<string, unknown> {
   if (!searchStr) {
-    return {};
+    return EMPTY_RECORD as Record<string, unknown>;
   }
   const startOffset = searchStr.charCodeAt(0) === 63 ? 1 : 0;
   const len = searchStr.length;
   if (startOffset >= len) {
-    return {};
+    return EMPTY_RECORD as Record<string, unknown>;
   }
 
-  const result: Record<string, unknown> = {};
+  const result = Object.create(null) as Record<string, string | string[]>;
   let start = startOffset;
 
   while (start < len) {
@@ -127,18 +142,18 @@ export function parseFastQueryString(searchStr: string): Record<string, unknown>
     if (eqIdx === -1 || eqIdx > ampIdx) {
       if (ampIdx > start) {
         const rawKey = searchStr.slice(start, ampIdx);
-        const key = rawKey.indexOf("%") === -1 ? rawKey : decodeURIComponent(rawKey);
+        const key = safeDecodeComponent(rawKey);
         appendParam(result, key, "");
       }
     } else {
       if (eqIdx > start) {
         const rawKey = searchStr.slice(start, eqIdx);
         const rawVal = searchStr.slice(eqIdx + 1, ampIdx);
-        const key = rawKey.indexOf("%") === -1 ? rawKey : decodeURIComponent(rawKey);
+        const key = safeDecodeComponent(rawKey);
         const val =
           rawVal.indexOf("%") === -1 && rawVal.indexOf("+") === -1
             ? rawVal
-            : decodeURIComponent(rawVal.replace(/\+/g, " "));
+            : safeDecodeComponent(rawVal.replace(/\+/g, " "));
         appendParam(result, key, val);
       }
     }

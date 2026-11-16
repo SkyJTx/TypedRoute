@@ -40,6 +40,7 @@ export default function Navigation() {
 > **Good to know**:
 >
 > - Always import the bound `<Link>` returned by `createRouter<typeof pageRoutes>(...)` in `src/router.ts` so `TManifest` is pre-bound to your project's `pageRoutes` tuple.
+> - **Built-in XSS & Tabnabbing Protection**: `<Link>` neutralizes client-executable schemes (`javascript:`, `data:`, `vbscript:`) to `"about:blank"`, collapses protocol-relative leading slashes (`//host` -> `/host`), and automatically enforces `rel="noopener noreferrer"` whenever `target="_blank"` is set.
 > - Because `virtual:file-routes` splits its manifest into a leaf module (`virtual:file-routes-manifest:*`), you can safely import `<Link>` from `src/router.ts` inside route definitions and components without causing circular SSR import errors.
 
 ---
@@ -89,6 +90,7 @@ export function RoleFilterTabs() {
 
 | Version | Changes |
 | :--- | :--- |
+| `v0.7.1` | Added executable URI scheme neutralization (`javascript:`, `data:`, `vbscript:` -> `"about:blank"`), leading `//` collapse on `href`, and automatic `rel="noopener noreferrer"` enforcement for all `target="_blank"` links. |
 | `v0.7.0` | Added `app` prop overload (`<Link app="..." to="...">`) for cross-app typed navigation with automatic external `target="_blank"` and `rel="noopener noreferrer"` attributes. |
 | `v0.3.0` | Fixed `RouteParamsFor` and `RouteSearchFor` so routes without explicit schemas infer path parameters and allow optional search queries without casts. |
 | `v0.1.0` | Initial release of `<Link>` in `@skyjt/typed-routes-solid`. |
